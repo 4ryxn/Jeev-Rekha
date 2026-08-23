@@ -6,7 +6,7 @@ from app.models.core import (
     MovementEvent,
     Outbreak,
     RouteAssessment,
-    RouteSegment,
+    RouteSegment, ReviewCase,
     SurveillanceUpdate,
     SyncReceipt,
     TraceFinding,
@@ -15,4 +15,4 @@ from app.models.core import (
     Vehicle,
 )
 
-__all__ = ["Location", "Vehicle", "Outbreak", "Consignment", "MovementEvent", "VaccinationEvent", "SurveillanceUpdate", "Advisory", "RouteSegment", "RouteAssessment", "TraceRun", "TraceFinding", "SyncReceipt", "ContainmentScenario"]
+__all__ = ["Location", "Vehicle", "Outbreak", "Consignment", "MovementEvent", "VaccinationEvent", "SurveillanceUpdate", "Advisory", "RouteSegment", "RouteAssessment", "TraceRun", "TraceFinding", "SyncReceipt", "ContainmentScenario", "ReviewCase"]

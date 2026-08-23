@@ -1,6 +1,6 @@
 import hashlib
 import json
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import ValidationError
 from sqlalchemy.orm import Session
 from sqlalchemy import select
@@ -21,7 +21,9 @@ from app.core.trace_windows import get_trace_review_window
 from app.services.tracing import TraceNotFoundError, TraceService, TraceValidationError
 from app.services.containment import ContainmentService
 from app.schemas import ContainmentCreate, ContainmentRead
-from app.models import ContainmentScenario
+from app.models import ContainmentScenario, ReviewCase, Advisory, TraceRun
+from app.schemas import ReviewCasePatch, ReviewCaseRead, ReportIndexRead
+from app.services.reviews import ReviewService
 
 router = APIRouter(prefix="/api/v1")
 repository = OperationsRepository()
@@ -32,6 +34,7 @@ route_service=RouteService()
 trace_repository = TraceRepository()
 trace_service = TraceService(trace_repository)
 containment_service=ContainmentService()
+review_service=ReviewService()
 
 
 @router.get("/locations", response_model=list[LocationRead], tags=["locations"])
@@ -215,3 +218,35 @@ def get_containment(scenario_id:int,db:Session=Depends(get_db)):
 def list_containment(outbreak_id:int,db:Session=Depends(get_db)):
  if not repository.get_outbreak(db,outbreak_id): raise HTTPException(404,"Outbreak not found")
  return containment_service.list(db,outbreak_id)
+
+def serialize_review(item:ReviewCase):
+ return {**{key:getattr(item,key) for key in ("id","source_type","source_id","category","priority","title","summary","status","resolution_note","created_at","acknowledged_at","resolved_at")},**review_service.source_meta(item)}
+@router.get("/review-cases",response_model=list[ReviewCaseRead],tags=["review-cases"])
+def list_review_cases(status_filter:str|None=Query(None,alias="status"),category:str|None=None,db:Session=Depends(get_db)):
+ return [serialize_review(item) for item in review_service.list(db,status_filter,category)]
+@router.get("/review-cases/{case_id}",response_model=ReviewCaseRead,tags=["review-cases"])
+def get_review_case(case_id:int,db:Session=Depends(get_db)):
+ item=review_service.get(db,case_id)
+ if not item: raise HTTPException(404,"Review case not found")
+ return serialize_review(item)
+@router.patch("/review-cases/{case_id}",response_model=ReviewCaseRead,tags=["review-cases"])
+def update_review_case(case_id:int,payload:ReviewCasePatch,db:Session=Depends(get_db)):
+ item=review_service.get(db,case_id)
+ if not item: raise HTTPException(404,"Review case not found")
+ return serialize_review(review_service.update(db,item,payload.status,payload.resolution_note or ""))
+
+@router.get("/reports",response_model=ReportIndexRead,tags=["reports"])
+def list_reports(db:Session=Depends(get_db)):
+ traces=list(db.scalars(select(TraceRun).order_by(TraceRun.created_at.desc()).limit(12)))
+ scenarios=list(db.scalars(select(ContainmentScenario).order_by(ContainmentScenario.created_at.desc()).limit(12)))
+ return {"advisories":[{"id":x.id,"href":f"/reports/advisories/{x.id}","title":f"{x.risk_state.value.title()} movement advisory"} for x in advisory_repository.list_recent_advisories(db)],"traces":[{"id":x.id,"href":f"/reports/traces/{x.id}","title":f"{x.direction.replace('_',' ').title()} trace contact review"} for x in traces],"containment":[{"id":x.id,"href":f"/containment-scenarios/{x.id}/print","title":"Containment action brief"} for x in scenarios]}
+@router.get("/reports/{kind}/{source_id}",tags=["reports"])
+def get_report_source(kind:str,source_id:int,db:Session=Depends(get_db)):
+ if kind=="advisories": item=advisory_repository.get_advisory(db,source_id)
+ elif kind=="traces": item=trace_repository.get_trace_run_with_findings(db,source_id)
+ elif kind=="containment": item=containment_service.get(db,source_id)
+ else: raise HTTPException(404,"Report source not found")
+ if not item: raise HTTPException(404,"Report source not found")
+ if kind=="traces": return serialize_trace(db,item)
+ if kind=="advisories": return AdvisoryRead.model_validate(item).model_dump(mode="json")
+ return ContainmentRead.model_validate(item).model_dump(mode="json")

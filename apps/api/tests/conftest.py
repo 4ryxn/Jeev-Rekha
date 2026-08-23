@@ -20,7 +20,7 @@ def migrated_database() -> None:
 
 def clear_operations_data() -> None:
     with engine.begin() as connection:
-        connection.execute(text("TRUNCATE TABLE trace_findings, trace_runs, route_assessments, route_segments, advisories, vaccination_events, surveillance_updates, movement_events, consignments, outbreaks, vehicles, locations RESTART IDENTITY CASCADE"))
+        connection.execute(text("TRUNCATE TABLE review_cases, trace_findings, trace_runs, route_assessments, route_segments, advisories, vaccination_events, surveillance_updates, movement_events, consignments, outbreaks, vehicles, locations RESTART IDENTITY CASCADE"))
 
 
 @pytest.fixture(autouse=True)

@@ -280,3 +280,18 @@ class ContainmentScenario(TimestampedModel, Base):
     scenario_summary: Mapped[dict[str,object]]=mapped_column(JSONB,nullable=False)
     assumptions: Mapped[list[str]]=mapped_column(JSONB,nullable=False)
     outbreak: Mapped[Outbreak]=relationship()
+
+class ReviewCase(TimestampedModel, Base):
+    __tablename__="review_cases"
+    __table_args__=(CheckConstraint("category IN ('evidence_gap', 'sync_exception', 'trace_contact')",name="ck_review_cases_category"),CheckConstraint("priority IN ('high', 'medium', 'low')",name="ck_review_cases_priority"),CheckConstraint("status IN ('open', 'acknowledged', 'resolved')",name="ck_review_cases_status"),Index("ux_review_cases_source_category","source_type","source_id","category",unique=True),Index("ix_review_cases_status_created_at","status","created_at"))
+    id: Mapped[int]=mapped_column(primary_key=True)
+    source_type: Mapped[str]=mapped_column(String(32),nullable=False)
+    source_id: Mapped[str]=mapped_column(String(64),nullable=False)
+    category: Mapped[str]=mapped_column(String(32),nullable=False)
+    priority: Mapped[str]=mapped_column(String(16),nullable=False)
+    title: Mapped[str]=mapped_column(String(200),nullable=False)
+    summary: Mapped[str]=mapped_column(Text,nullable=False)
+    status: Mapped[str]=mapped_column(String(16),nullable=False,default="open",server_default="open")
+    resolution_note: Mapped[str|None]=mapped_column(Text)
+    acknowledged_at: Mapped[datetime|None]=mapped_column(DateTime(timezone=True))
+    resolved_at: Mapped[datetime|None]=mapped_column(DateTime(timezone=True))

@@ -22,11 +22,13 @@ export interface ContainmentActionEffect {category:string;applicable_workload:nu
 export interface ContainmentSummary {estimated_review_contacts:number;route_checkpoint_contacts:number;market_contacts:number;other_review_contacts:number;affected_locations:number;affected_vehicles:number;affected_consignments:number;baseline_route_risk_exposure_count:number}
 export interface ContainmentScenarioSummary extends ContainmentSummary {scenario_route_risk_exposure_count?:number;action_effects?:Record<string,ContainmentActionEffect>}
 export interface ContainmentScenario {id:number;outbreak:Outbreak;horizon_days:number;selected_actions:string[];baseline_summary:ContainmentSummary;scenario_summary:ContainmentScenarioSummary;assumptions:string[];created_at:string}
+export interface ReviewCase {id:number;source_type:string;source_id:string;category:"evidence_gap"|"sync_exception"|"trace_contact";priority:"high"|"medium"|"low";title:string;summary:string;status:"open"|"acknowledged"|"resolved";resolution_note:string|null;created_at:string;acknowledged_at:string|null;resolved_at:string|null;source_summary:string;source_href:string}
+export interface ReportIndex {advisories:{id:number;href:string;title:string}[];traces:{id:number;href:string;title:string}[];containment:{id:number;href:string;title:string}[]}
 
 const baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000/api/v1";
 
 export async function apiFetch<T>(path: string, options?: RequestInit): Promise<T> {
-  const response = await fetch(`${baseUrl}${path}`, { ...options, headers: { "Content-Type": "application/json", ...(options?.headers ?? {}) } });
+  const response = await fetch(`${baseUrl}${path}`, { cache: "no-store", ...options, headers: { "Content-Type": "application/json", ...(options?.headers ?? {}) } });
   if (!response.ok) {
     const body = await response.json().catch(() => null);
     throw new Error(body?.detail ?? `Request failed (${response.status})`);

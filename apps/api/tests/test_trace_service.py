@@ -150,6 +150,14 @@ assert retried.json()[0]['entity_id'] == synced.json()[0]['entity_id']
 scenario = client.post(f\"/api/v1/outbreaks/{outbreak['id']}/containment-scenarios\", json={'horizon_days': 7, 'selected_actions': ['checkpoint_screening']})
 assert scenario.status_code == 201, scenario.text
 assert client.get(f\"/api/v1/containment-scenarios/{scenario.json()['id']}\").status_code == 200
+cases = client.get('/api/v1/review-cases')
+assert cases.status_code == 200 and cases.json(), cases.text
+case = cases.json()[0]
+updated = client.patch(f\"/api/v1/review-cases/{case['id']}\", json={'status': 'acknowledged'})
+assert updated.status_code == 200 and updated.json()['status'] == 'acknowledged', updated.text
+reports = client.get('/api/v1/reports')
+assert reports.status_code == 200 and reports.json()['advisories'], reports.text
+assert client.get(f\"/api/v1/reports/advisories/{reports.json()['advisories'][0]['id']}\").status_code == 200
 """
         subprocess.run([sys.executable, "-c", verify_script], cwd=API_ROOT, env=environment, check=True)
     finally:
