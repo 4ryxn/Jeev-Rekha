@@ -1,6 +1,7 @@
 from app.models.core import (
     Advisory,
     Consignment,
+    ContainmentScenario,
     Location,
     MovementEvent,
     Outbreak,
@@ -14,4 +15,4 @@ from app.models.core import (
     Vehicle,
 )
 
-__all__ = ["Location", "Vehicle", "Outbreak", "Consignment", "MovementEvent", "VaccinationEvent", "SurveillanceUpdate", "Advisory", "RouteSegment", "RouteAssessment", "TraceRun", "TraceFinding", "SyncReceipt"]
+__all__ = ["Location", "Vehicle", "Outbreak", "Consignment", "MovementEvent", "VaccinationEvent", "SurveillanceUpdate", "Advisory", "RouteSegment", "RouteAssessment", "TraceRun", "TraceFinding", "SyncReceipt", "ContainmentScenario"]

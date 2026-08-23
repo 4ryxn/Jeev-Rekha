@@ -2,6 +2,7 @@ import { AppShell } from "@/components/app-shell";
 import { DashboardContent } from "@/components/dashboard-content";
 import { DashboardMapPreview } from "@/components/dashboard-map-preview";
 import { TraceActivity } from "@/components/trace-activity";
+import { ContainmentActivity } from "@/components/containment-activity";
 import { PageHeader } from "@/components/ui/page-header";
 
 export default function DashboardPage() {
@@ -11,6 +12,7 @@ export default function DashboardPage() {
       <DashboardContent />
       <DashboardMapPreview />
       <TraceActivity />
+      <ContainmentActivity />
     </div>
   </AppShell>;
 }

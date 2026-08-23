@@ -205,6 +205,10 @@ def ensure_trace_demonstration_connections(db) -> str:
             occurred_at=forward_consignment.departure_at + timedelta(hours=2),
         ))
         added += 1
+    for location_name, event_type, offset in [("North Gate Checkpost", MovementEventType.CHECKPOINT, 1), ("Sampoorna Livestock Market", MovementEventType.MARKET_ENTRY, 2)]:
+        if not db.scalar(select(MovementEvent.id).where(MovementEvent.consignment_id == forward_consignment.id, MovementEvent.location_id == locations[location_name].id)):
+            db.add(MovementEvent(consignment_id=forward_consignment.id, location_id=locations[location_name].id, event_type=event_type, occurred_at=forward_consignment.departure_at + timedelta(hours=offset)))
+            added += 1
     if added:
         db.commit()
         return "Synthetic Phase 5A.2 trace demonstration connections created."

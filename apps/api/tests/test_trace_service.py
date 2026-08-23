@@ -147,6 +147,9 @@ synced = client.post('/api/v1/sync/operations', json={'operations': [operation]}
 assert synced.status_code == 200, synced.text
 retried = client.post('/api/v1/sync/operations', json={'operations': [operation]})
 assert retried.json()[0]['entity_id'] == synced.json()[0]['entity_id']
+scenario = client.post(f\"/api/v1/outbreaks/{outbreak['id']}/containment-scenarios\", json={'horizon_days': 7, 'selected_actions': ['checkpoint_screening']})
+assert scenario.status_code == 201, scenario.text
+assert client.get(f\"/api/v1/containment-scenarios/{scenario.json()['id']}\").status_code == 200
 """
         subprocess.run([sys.executable, "-c", verify_script], cwd=API_ROOT, env=environment, check=True)
     finally:

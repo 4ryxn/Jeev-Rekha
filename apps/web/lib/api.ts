@@ -18,6 +18,10 @@ export interface TraceConfiguration { disease_name: string; review_window_days: 
 export interface TraceFinding { id: number; entity_type: string; entity_id: string; relationship_type: string; event_timestamp: string; evidence_level: TraceEvidenceLevel; explanation: string; review_status: string }
 export interface TraceImpactedCounts { findings: number; locations: number; vehicles: number; consignments: number }
 export interface TraceRun { id: number; outbreak: Outbreak; direction: TraceDirection; window_start: string; window_end: string; review_window_days: number; source_label: string; findings: TraceFinding[]; timeline: TraceFinding[]; impacted_counts: TraceImpactedCounts; impacted_locations: Location[]; created_at: string; disclaimer: string }
+export interface ContainmentActionEffect {category:string;applicable_workload:number;reduction:number}
+export interface ContainmentSummary {estimated_review_contacts:number;route_checkpoint_contacts:number;market_contacts:number;other_review_contacts:number;affected_locations:number;affected_vehicles:number;affected_consignments:number;baseline_route_risk_exposure_count:number}
+export interface ContainmentScenarioSummary extends ContainmentSummary {scenario_route_risk_exposure_count?:number;action_effects?:Record<string,ContainmentActionEffect>}
+export interface ContainmentScenario {id:number;outbreak:Outbreak;horizon_days:number;selected_actions:string[];baseline_summary:ContainmentSummary;scenario_summary:ContainmentScenarioSummary;assumptions:string[];created_at:string}
 
 const baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000/api/v1";
 

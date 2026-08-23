@@ -19,6 +19,9 @@ from app.models import Location, SyncReceipt, TraceRun
 from app.repositories.traces import TraceRepository
 from app.core.trace_windows import get_trace_review_window
 from app.services.tracing import TraceNotFoundError, TraceService, TraceValidationError
+from app.services.containment import ContainmentService
+from app.schemas import ContainmentCreate, ContainmentRead
+from app.models import ContainmentScenario
 
 router = APIRouter(prefix="/api/v1")
 repository = OperationsRepository()
@@ -28,6 +31,7 @@ advisory_service = AdvisoryService(advisory_repository)
 route_service=RouteService()
 trace_repository = TraceRepository()
 trace_service = TraceService(trace_repository)
+containment_service=ContainmentService()
 
 
 @router.get("/locations", response_model=list[LocationRead], tags=["locations"])
@@ -198,3 +202,16 @@ def sync_operations(payload: SyncBatchRequest, db: Session = Depends(get_db)) ->
             db.add(receipt); db.commit(); db.refresh(receipt)
             results.append(SyncOperationResult(client_operation_id=operation.client_operation_id, operation_type=operation.operation_type, status="needs_review", received_at=receipt.received_at, error=str(detail)))
     return results
+
+@router.post("/outbreaks/{outbreak_id}/containment-scenarios",response_model=ContainmentRead,status_code=201)
+def create_containment(outbreak_id:int,payload:ContainmentCreate,db:Session=Depends(get_db)):
+ return containment_service.create(db,outbreak_id,payload.horizon_days,payload.selected_actions)
+@router.get("/containment-scenarios/{scenario_id}",response_model=ContainmentRead)
+def get_containment(scenario_id:int,db:Session=Depends(get_db)):
+ item=containment_service.get(db,scenario_id)
+ if not item: raise HTTPException(404,"Containment scenario not found")
+ return item
+@router.get("/outbreaks/{outbreak_id}/containment-scenarios",response_model=list[ContainmentRead])
+def list_containment(outbreak_id:int,db:Session=Depends(get_db)):
+ if not repository.get_outbreak(db,outbreak_id): raise HTTPException(404,"Outbreak not found")
+ return containment_service.list(db,outbreak_id)

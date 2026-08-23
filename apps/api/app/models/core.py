@@ -268,3 +268,15 @@ class SyncReceipt(Base):
     entity_id: Mapped[int | None] = mapped_column(Integer)
     payload_hash: Mapped[str] = mapped_column(String(64), nullable=False)
     received_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+class ContainmentScenario(TimestampedModel, Base):
+    __tablename__="containment_scenarios"
+    __table_args__=(Index("ix_containment_scenarios_outbreak_created_at","outbreak_id","created_at"),)
+    id: Mapped[int]=mapped_column(primary_key=True)
+    outbreak_id: Mapped[int]=mapped_column(ForeignKey("outbreaks.id",ondelete="CASCADE"),nullable=False)
+    horizon_days: Mapped[int]=mapped_column(Integer,nullable=False)
+    selected_actions: Mapped[list[str]]=mapped_column(JSONB,nullable=False)
+    baseline_summary: Mapped[dict[str,object]]=mapped_column(JSONB,nullable=False)
+    scenario_summary: Mapped[dict[str,object]]=mapped_column(JSONB,nullable=False)
+    assumptions: Mapped[list[str]]=mapped_column(JSONB,nullable=False)
+    outbreak: Mapped[Outbreak]=relationship()
