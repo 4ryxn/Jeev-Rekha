@@ -1,0 +1,11 @@
+"use client";
+import "maplibre-gl/dist/maplibre-gl.css";
+import { useEffect, useRef } from "react";
+import * as maplibregl from "maplibre-gl";
+import type { Location, Outbreak, RouteAssessment } from "@/lib/api";
+
+export function RouteRiskMap({ assessment, locations, outbreaks }: { assessment?: RouteAssessment; locations: Location[]; outbreaks: Outbreak[] }) {
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => { if (!ref.current) return; const map = new maplibregl.Map({ container: ref.current, style: { version: 8, sources: {}, layers: [{ id: "paper", type: "background", paint: { "background-color": "#e9eee5" } }] }, center: [77.55, 13.03], zoom: 10 }); map.on("load", () => { const points = locations.map(x => ({ type:"Feature", geometry:{type:"Point",coordinates:[x.longitude,x.latitude]}, properties:{name:x.name,type:x.type} })); map.addSource("locations", { type:"geojson", data:{type:"FeatureCollection",features:points} as never }); map.addLayer({id:"locations",type:"circle",source:"locations",paint:{"circle-radius":6,"circle-color":"#0f766e","circle-stroke-color":"#fff","circle-stroke-width":2}}); const zones=outbreaks.filter(x=>x.status!=="closed").map(x=>({type:"Feature",geometry:{type:"Point",coordinates:[x.location.longitude,x.location.latitude]},properties:{status:x.status}})); map.addSource("zones",{type:"geojson",data:{type:"FeatureCollection",features:zones} as never}); map.addLayer({id:"zones",type:"circle",source:"zones",paint:{"circle-radius":16,"circle-color":["match",["get","status"],"confirmed","#b42318","#b45309"],"circle-opacity":0.35}}); const line=(id:string,c:number[][],color:string)=>{map.addSource(id,{type:"geojson",data:{type:"Feature",geometry:{type:"LineString",coordinates:c}} as never});map.addLayer({id,type:"line",source:id,paint:{"line-color":color,"line-width":5}})}; if(assessment){line("preferred",assessment.preferred_route.coordinates,"#b42318");if(assessment.safer_route)line("safer",assessment.safer_route.coordinates,"#0f766e"); const b=new maplibregl.LngLatBounds();assessment.preferred_route.coordinates.forEach(x=>b.extend(x as [number,number]));map.fitBounds(b,{padding:35,maxZoom:12});} }); return()=>map.remove(); },[assessment,locations,outbreaks]);
+  return <div className="h-72 overflow-hidden rounded-xl border border-line" ref={ref} aria-label="Interactive synthetic risk map" />;
+}

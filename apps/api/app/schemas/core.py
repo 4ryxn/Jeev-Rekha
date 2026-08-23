@@ -1,0 +1,179 @@
+from datetime import datetime
+
+from pydantic import BaseModel, ConfigDict, Field, field_validator
+
+from app.models.core import (
+    LocationType,
+    MovementEventType,
+    OutbreakStatus,
+    VaccinationEvidence,
+    VerificationLevel,
+    RiskState,
+    TraceDirection,
+    TraceEvidenceLevel,
+)
+
+
+class ORMModel(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+
+class LocationRead(ORMModel):
+    id: int
+    name: str
+    type: LocationType
+    latitude: float
+    longitude: float
+    created_at: datetime
+
+
+class VehicleRead(ORMModel):
+    id: int
+    vehicle_reference: str
+    created_at: datetime
+
+
+class OutbreakCreate(BaseModel):
+    disease_name: str = Field(min_length=2, max_length=120)
+    species: str = Field(min_length=2, max_length=80)
+    status: OutbreakStatus
+    location_id: int = Field(gt=0)
+    detected_at: datetime
+    confirmed_at: datetime | None = None
+    suspected_cases: int = Field(default=0, ge=0)
+    confirmed_cases: int = Field(default=0, ge=0)
+    mortality_count: int = Field(default=0, ge=0)
+    verification_level: VerificationLevel
+    notes: str | None = Field(default=None, max_length=2000)
+
+    @field_validator("disease_name", "species")
+    @classmethod
+    def trim_required_text(cls, value: str) -> str:
+        value = value.strip()
+        if not value:
+            raise ValueError("must not be blank")
+        return value
+
+
+class OutbreakRead(ORMModel):
+    id: int
+    disease_name: str
+    species: str
+    status: OutbreakStatus
+    location_id: int
+    detected_at: datetime
+    confirmed_at: datetime | None
+    suspected_cases: int
+    confirmed_cases: int
+    mortality_count: int
+    verification_level: VerificationLevel
+    notes: str | None
+    created_at: datetime
+    location: LocationRead
+
+
+class ConsignmentCreate(BaseModel):
+    origin_location_id: int = Field(gt=0)
+    destination_location_id: int = Field(gt=0)
+    species: str = Field(min_length=2, max_length=80)
+    animal_count: int = Field(gt=0, le=100000)
+    vehicle_reference: str = Field(min_length=3, max_length=64)
+    departure_at: datetime
+    vaccination_evidence: VaccinationEvidence
+
+    @field_validator("species", "vehicle_reference")
+    @classmethod
+    def trim_text(cls, value: str) -> str:
+        value = value.strip()
+        if not value:
+            raise ValueError("must not be blank")
+        return value.upper() if value == value.upper() else value
+
+    @field_validator("destination_location_id")
+    @classmethod
+    def require_different_destination(cls, value: int, info: object) -> int:
+        data = getattr(info, "data", {})
+        if data.get("origin_location_id") == value:
+            raise ValueError("destination must be different from origin")
+        return value
+
+
+class MovementEventRead(ORMModel):
+    id: int
+    consignment_id: int
+    location_id: int
+    event_type: MovementEventType
+    occurred_at: datetime
+    created_at: datetime
+    location: LocationRead
+
+
+class ConsignmentRead(ORMModel):
+    id: int
+    origin_location_id: int
+    destination_location_id: int
+    species: str
+    animal_count: int
+    vehicle_id: int
+    departure_at: datetime
+    vaccination_evidence: VaccinationEvidence
+    created_at: datetime
+    origin_location: LocationRead
+    destination_location: LocationRead
+    vehicle: VehicleRead
+    movement_events: list[MovementEventRead] = []
+
+
+class EvidenceFactor(BaseModel):
+    key: str
+    label: str
+    score: int = Field(ge=0, le=25)
+    max_score: int = 25
+    freshness_date: datetime | None = None
+    explanation: str
+
+
+class AdvisoryReason(BaseModel):
+    code: str
+    text: str
+
+
+class AdvisoryEvaluateRequest(BaseModel):
+    consignment_id: int = Field(gt=0)
+
+
+class AdvisoryRead(ORMModel):
+    id: int
+    consignment_id: int
+    risk_state: RiskState
+    evidence_coverage_score: int = Field(ge=0, le=100)
+    reasons: list[AdvisoryReason]
+    evidence_factors: list[EvidenceFactor]
+    recommended_action: str
+    evaluated_at: datetime
+    rules_version: str
+    consignment: ConsignmentRead
+
+
+class TraceFindingRead(ORMModel):
+    id: int
+    trace_run_id: int
+    entity_type: str
+    entity_id: str
+    relationship_type: str
+    event_timestamp: datetime
+    evidence_level: TraceEvidenceLevel
+    explanation: str
+    review_status: str
+    created_at: datetime
+
+
+class TraceRunRead(ORMModel):
+    id: int
+    outbreak_id: int
+    direction: TraceDirection
+    window_start: datetime
+    window_end: datetime
+    parameters: dict[str, object]
+    created_at: datetime
+    findings: list[TraceFindingRead] = []
