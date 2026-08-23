@@ -255,3 +255,16 @@ class TraceFinding(TimestampedModel, Base):
         String(64), nullable=False, default="requires_veterinary_review", server_default="requires_veterinary_review"
     )
     trace_run: Mapped[TraceRun] = relationship(back_populates="findings")
+
+
+class SyncReceipt(Base):
+    __tablename__ = "sync_receipts"
+    __table_args__ = (Index("ix_sync_receipts_received_at", "received_at"),)
+    id: Mapped[int] = mapped_column(primary_key=True)
+    client_operation_id: Mapped[str] = mapped_column(String(64), unique=True, nullable=False)
+    operation_type: Mapped[str] = mapped_column(String(32), nullable=False)
+    status: Mapped[str] = mapped_column(String(32), nullable=False)
+    entity_type: Mapped[str | None] = mapped_column(String(32))
+    entity_id: Mapped[int | None] = mapped_column(Integer)
+    payload_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    received_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)

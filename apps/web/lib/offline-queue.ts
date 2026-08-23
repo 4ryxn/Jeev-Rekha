@@ -1,0 +1,14 @@
+"use client";
+import Dexie, { type Table } from "dexie";
+import { apiFetch } from "@/lib/api";
+
+export type OfflineOperationType = "create_consignment" | "create_outbreak";
+export type OfflineStatus = "pending" | "syncing" | "synced" | "needs_review" | "failed";
+export interface OfflineOperation { client_operation_id: string; operation_type: OfflineOperationType; payload: Record<string, unknown>; created_at: string; status: OfflineStatus; last_error?: string; server_entity_id?: number }
+export interface LocationReference { id: number; name: string; type: string; latitude: number; longitude: number; created_at: string }
+class QueueDatabase extends Dexie { operations!: Table<OfflineOperation, string>; locationReferences!: Table<LocationReference, number>; constructor(){ super("jeev-rekha-offline"); this.version(1).stores({ operations:"client_operation_id,status,created_at" }); this.version(2).stores({ operations:"client_operation_id,status,created_at", locationReferences:"id,name" }); } }
+export const offlineDb = new QueueDatabase();
+const changed = () => typeof window !== "undefined" && window.dispatchEvent(new Event("jeevrekha-sync-change"));
+export async function queueOperation(operation_type: OfflineOperationType, payload: Record<string, unknown>, client_operation_id = crypto.randomUUID()) { const existing=await offlineDb.operations.get(client_operation_id); if(existing)return existing; const item: OfflineOperation={client_operation_id,operation_type,payload,created_at:new Date().toISOString(),status:"pending"}; await offlineDb.operations.add(item); changed(); return item; }
+export async function queueCounts(){ const all=await offlineDb.operations.toArray(); return Object.fromEntries((["pending","syncing","synced","needs_review","failed"] as OfflineStatus[]).map(status=>[status,all.filter(x=>x.status===status).length])) as Record<OfflineStatus,number>; }
+export async function syncNow(){ const items=await offlineDb.operations.where("status").anyOf("pending","failed").toArray(); if(!items.length)return; await offlineDb.operations.bulkPut(items.map(x=>({...x,status:"syncing" as const,last_error:undefined}))); changed(); try { const results=await apiFetch<Array<{client_operation_id:string;status:OfflineStatus;entity_id?:number;error?:string}>>("/sync/operations",{method:"POST",body:JSON.stringify({operations:items.map(({client_operation_id,operation_type,payload})=>({client_operation_id,operation_type,payload}))})}); for(const result of results){const old=await offlineDb.operations.get(result.client_operation_id);if(old)await offlineDb.operations.put({...old,status:result.status,server_entity_id:result.entity_id,last_error:result.error});} } catch(error) { for(const item of items){const old=await offlineDb.operations.get(item.client_operation_id);if(old)await offlineDb.operations.put({...old,status:"failed",last_error:error instanceof Error?error.message:"Sync unavailable"});} } changed(); }

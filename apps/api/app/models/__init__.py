@@ -7,10 +7,11 @@ from app.models.core import (
     RouteAssessment,
     RouteSegment,
     SurveillanceUpdate,
+    SyncReceipt,
     TraceFinding,
     TraceRun,
     VaccinationEvent,
     Vehicle,
 )
 
-__all__ = ["Location", "Vehicle", "Outbreak", "Consignment", "MovementEvent", "VaccinationEvent", "SurveillanceUpdate", "Advisory", "RouteSegment", "RouteAssessment", "TraceRun", "TraceFinding"]
+__all__ = ["Location", "Vehicle", "Outbreak", "Consignment", "MovementEvent", "VaccinationEvent", "SurveillanceUpdate", "Advisory", "RouteSegment", "RouteAssessment", "TraceRun", "TraceFinding", "SyncReceipt"]

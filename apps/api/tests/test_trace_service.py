@@ -141,6 +141,12 @@ assert fast.status_code == 201, fast.text
 assert {item['evidence_level'] for item in rewind.json()['findings']} == {'direct', 'indirect'}
 assert {item['evidence_level'] for item in fast.json()['findings']} == {'direct', 'indirect'}
 assert client.get(f\"/api/v1/traces/{rewind.json()['id']}\").status_code == 200
+locations = client.get('/api/v1/locations?type=village').json()
+operation = {'client_operation_id': 'isolated-sync-0001', 'operation_type': 'create_consignment', 'payload': {'origin_location_id': locations[0]['id'], 'destination_location_id': locations[1]['id'], 'species': 'Goat', 'animal_count': 3, 'vehicle_reference': 'ISO-SYNC-01', 'departure_at': '2026-08-24T10:00:00Z', 'vaccination_evidence': 'declared'}}
+synced = client.post('/api/v1/sync/operations', json={'operations': [operation]})
+assert synced.status_code == 200, synced.text
+retried = client.post('/api/v1/sync/operations', json={'operations': [operation]})
+assert retried.json()[0]['entity_id'] == synced.json()[0]['entity_id']
 """
         subprocess.run([sys.executable, "-c", verify_script], cwd=API_ROOT, env=environment, check=True)
     finally:

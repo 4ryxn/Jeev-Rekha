@@ -1,4 +1,7 @@
+import hashlib
+import json
 from fastapi import APIRouter, Depends, HTTPException, status
+from pydantic import ValidationError
 from sqlalchemy.orm import Session
 from sqlalchemy import select
 
@@ -6,13 +9,13 @@ from app.db.session import get_db
 from app.models.core import LocationType
 from app.repositories.core import OperationsRepository
 from app.repositories.advisories import AdvisoryRepository
-from app.schemas import AdvisoryEvaluateRequest, AdvisoryRead, ConsignmentCreate, ConsignmentRead, LocationRead, OutbreakCreate, OutbreakRead, TraceConfigurationRead, TraceCreateRequest, TraceRunResponse
+from app.schemas import AdvisoryEvaluateRequest, AdvisoryRead, ConsignmentCreate, ConsignmentRead, LocationRead, OutbreakCreate, OutbreakRead, SyncBatchRequest, SyncOperationResult, TraceConfigurationRead, TraceCreateRequest, TraceRunResponse
 from app.services.advisory import AdvisoryService
 from app.services.operations import OperationsService
 from app.services.routing import RouteService
 from app.schemas.routes import RouteAssessRequest, RouteAssessmentRead
 from app.models import RouteAssessment
-from app.models import Location, TraceRun
+from app.models import Location, SyncReceipt, TraceRun
 from app.repositories.traces import TraceRepository
 from app.core.trace_windows import get_trace_review_window
 from app.services.tracing import TraceNotFoundError, TraceService, TraceValidationError
@@ -173,3 +176,25 @@ def serialize_trace(db: Session, trace: TraceRun) -> TraceRunResponse:
         impacted_locations=locations,
         created_at=trace.created_at,
     )
+
+
+@router.post("/sync/operations", response_model=list[SyncOperationResult], tags=["sync"])
+def sync_operations(payload: SyncBatchRequest, db: Session = Depends(get_db)) -> list[SyncOperationResult]:
+    results: list[SyncOperationResult] = []
+    for operation in payload.operations:
+        existing = db.scalar(select(SyncReceipt).where(SyncReceipt.client_operation_id == operation.client_operation_id))
+        if existing:
+            results.append(SyncOperationResult(client_operation_id=existing.client_operation_id, operation_type=existing.operation_type, status=existing.status, entity_type=existing.entity_type, entity_id=existing.entity_id, received_at=existing.received_at))
+            continue
+        digest = hashlib.sha256(json.dumps(operation.payload, sort_keys=True, default=str).encode()).hexdigest()
+        try:
+            entity = service.create_consignment(db, ConsignmentCreate.model_validate(operation.payload)) if operation.operation_type == "create_consignment" else service.create_outbreak(db, OutbreakCreate.model_validate(operation.payload))
+            receipt = SyncReceipt(client_operation_id=operation.client_operation_id, operation_type=operation.operation_type, status="synced", entity_type="consignment" if operation.operation_type == "create_consignment" else "outbreak", entity_id=entity.id, payload_hash=digest)
+            db.add(receipt); db.commit(); db.refresh(receipt)
+            results.append(SyncOperationResult(client_operation_id=receipt.client_operation_id, operation_type=receipt.operation_type, status="synced", entity_type=receipt.entity_type, entity_id=receipt.entity_id, received_at=receipt.received_at))
+        except (ValidationError, HTTPException, ValueError) as error:
+            detail = error.detail if isinstance(error, HTTPException) else str(error)
+            receipt = SyncReceipt(client_operation_id=operation.client_operation_id, operation_type=operation.operation_type, status="needs_review", entity_type=None, entity_id=None, payload_hash=digest)
+            db.add(receipt); db.commit(); db.refresh(receipt)
+            results.append(SyncOperationResult(client_operation_id=operation.client_operation_id, operation_type=operation.operation_type, status="needs_review", received_at=receipt.received_at, error=str(detail)))
+    return results
