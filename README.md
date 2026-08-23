@@ -1,6 +1,6 @@
-# Jeev Rekha — Phase 3 Deterministic Advisories
+# Jeev Rekha — Local synthetic operations workspace
 
-Jeev Rekha is a livestock outbreak intelligence and movement-advisory project. This repository currently implements **Phase 3**: local PostGIS-backed core operations plus a deterministic, persisted movement-advisory engine and transparent Evidence Coverage Score.
+Jeev Rekha is a livestock outbreak intelligence and movement-advisory project using a local PostGIS-backed synthetic demonstration workspace.
 
 All stored records are synthetic demonstration data. There is no live INAPH, NADRES, IDSP, or other government API connection. Safe Corridor routing, tracing, offline sync, simulation, reports, real authentication, external integrations, and deployment are intentionally deferred.
 
@@ -30,7 +30,7 @@ docker compose up -d
 docker compose ps
 ```
 
-The database is available at `localhost:5432` and stores data in the named `jeev_rekha_postgres_data` volume. Phase 1 creates no application tables or migrations.
+The database is available at `localhost:5432` and stores data in the named `jeev_rekha_postgres_data` volume.
 
 To stop it:
 
@@ -47,8 +47,7 @@ cd apps/api
 python3.12 -m venv .venv
 source .venv/bin/activate
 python -m pip install -r requirements-dev.txt
-alembic upgrade head
-python -m app.seed
+python -m app.demo_reset
 uvicorn app.main:app --reload --port 8000
 ```
 
@@ -104,9 +103,9 @@ docker-compose.yml PostgreSQL + PostGIS only
 
 ## Synthetic demo records
 
-`python -m app.seed` creates 13 fictional locations (8 villages, 2 markets, 2 checkposts, and 1 veterinary centre), 4 fictional vehicles, 3 outbreak records, 7 consignments, persisted surveillance/vaccination evidence, and four stored advisory examples. Re-running the command does not duplicate the seed data.
+`python -m app.demo_reset` upgrades the schema and idempotently creates fictional locations, vehicles, outbreak records, consignments, evidence, routes, and advisory examples. It never deletes existing database records.
 
-The four Phase 3 advisory demonstrations are:
+The four advisory demonstrations are:
 
 - Asha Nagar → Kaveri Cattle Market: **Green**
 - Navjeevan → Madhavpura: **Amber**

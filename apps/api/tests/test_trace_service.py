@@ -133,6 +133,7 @@ def test_trace_service_runs_from_a_clean_isolated_seeded_postgis_database() -> N
 from fastapi.testclient import TestClient
 from app.main import app
 client = TestClient(app)
+assert client.get('/api/v1/health').status_code == 200
 outbreak = next(item for item in client.get('/api/v1/outbreaks').json() if item['disease_name'] == 'Foot-and-mouth disease')
 rewind = client.post(f\"/api/v1/outbreaks/{outbreak['id']}/traces\", json={'direction': 'rewind'})
 assert rewind.status_code == 201, rewind.text
@@ -158,6 +159,10 @@ assert updated.status_code == 200 and updated.json()['status'] == 'acknowledged'
 reports = client.get('/api/v1/reports')
 assert reports.status_code == 200 and reports.json()['advisories'], reports.text
 assert client.get(f\"/api/v1/reports/advisories/{reports.json()['advisories'][0]['id']}\").status_code == 200
+assert any(item['id'] == rewind.json()['id'] for item in reports.json()['traces'])
+assert any(item['id'] == scenario.json()['id'] for item in reports.json()['containment'])
+assert client.get(f\"/api/v1/reports/traces/{rewind.json()['id']}\").status_code == 200
+assert client.get(f\"/api/v1/reports/containment/{scenario.json()['id']}\").status_code == 200
 """
         subprocess.run([sys.executable, "-c", verify_script], cwd=API_ROOT, env=environment, check=True)
     finally:
