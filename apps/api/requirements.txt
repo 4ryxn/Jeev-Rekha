@@ -1,8 +1,10 @@
 fastapi==0.115.8
+pydantic==2.13.4
 pydantic-settings==2.7.1
 SQLAlchemy==2.0.38
 alembic==1.14.1
 GeoAlchemy2==0.16.0
+httpx==0.28.1
 psycopg[binary]==3.2.4
 # Required when a managed platform supplies SQLAlchemy's conventional
 # postgresql:// URL (which selects the psycopg2 dialect).
