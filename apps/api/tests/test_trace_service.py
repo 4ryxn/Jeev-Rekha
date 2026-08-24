@@ -163,6 +163,15 @@ assert any(item['id'] == rewind.json()['id'] for item in reports.json()['traces'
 assert any(item['id'] == scenario.json()['id'] for item in reports.json()['containment'])
 assert client.get(f\"/api/v1/reports/traces/{rewind.json()['id']}\").status_code == 200
 assert client.get(f\"/api/v1/reports/containment/{scenario.json()['id']}\").status_code == 200
+all_locations = {item['name']: item['id'] for item in client.get('/api/v1/locations').json()}
+before_public = (len(client.get('/api/v1/consignments').json()), len(client.get('/api/v1/advisories').json()))
+def public_check(origin, destination):
+    return client.post('/api/v1/public/movement-check', json={'origin_location_id': all_locations[origin], 'destination_location_id': all_locations[destination], 'species': 'Cattle', 'approximate_animal_count': 8, 'vehicle_reference': 'PUBLIC-ISO-01', 'vaccination_evidence': 'verified'})
+assert public_check('Asha Nagar', 'Kaveri Cattle Market').json()['risk_state'] == 'green'
+assert public_check('Navjeevan', 'Madhavpura').json()['risk_state'] == 'amber'
+assert public_check('Haritpur', 'Nandipur').json()['risk_state'] == 'red'
+assert public_check('Bhoomi Village', 'Navjeevan').json()['risk_state'] == 'grey'
+assert before_public == (len(client.get('/api/v1/consignments').json()), len(client.get('/api/v1/advisories').json()))
 """
         subprocess.run([sys.executable, "-c", verify_script], cwd=API_ROOT, env=environment, check=True)
     finally:

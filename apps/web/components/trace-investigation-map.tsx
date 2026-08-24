@@ -107,7 +107,7 @@ export function TraceInvestigationMap({ trace }: { trace: TraceRun }) {
         {movementLinks.map((link, index) => <line key={`${link.x1}-${link.y1}-${link.x2}-${link.y2}-${index}`} x1={link.x1} y1={link.y1} x2={link.x2} y2={link.y2} stroke="#0f8b8d" strokeWidth="5" strokeOpacity="0.95" strokeLinecap="round" />)}
       </svg>
       <div className="pointer-events-none absolute inset-0 z-20"><SyntheticNetworkFallback locations={[]} outbreaks={[]} origin={trace.outbreak.location} impacted={trace.impacted_locations} lines={trace.impacted_locations.map((location) => ({ coordinates: [[trace.outbreak.location.longitude, trace.outbreak.location.latitude], [location.longitude, location.latitude]], color: "#0f8b8d", label: "Recorded movement link" }))} /></div>
-      {fallback&&<span className="sr-only">MapLibre background is unavailable; the controlled synthetic network view remains visible.</span>}
+      {fallback&&<span className="sr-only">MapLibre background is unavailable; the synthetic movement network remains visible.</span>}
     </div>
     <figcaption className="border-t border-line p-4 text-sm text-slate-700">
       <div className="flex flex-wrap gap-x-5 gap-y-2 font-semibold text-ink" aria-label="Map legend"><span className="inline-flex items-center gap-2"><MapPin size={16} className="text-risk-red" aria-hidden="true" />Confirmed outbreak origin</span><span className="inline-flex items-center gap-2"><MapPin size={16} className="text-risk-amber" aria-hidden="true" />Impacted recorded location</span><span className="inline-flex items-center gap-2"><Route size={16} className="text-teal" aria-hidden="true" />Recorded movement link</span></div>

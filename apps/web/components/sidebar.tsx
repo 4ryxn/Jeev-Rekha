@@ -1,6 +1,6 @@
 "use client";
 
-import { ClipboardPlus, FlaskConical, LayoutDashboard, Map, ShieldCheck, ClipboardCheck, FileText } from "lucide-react";
+import { ClipboardPlus, FlaskConical, LayoutDashboard, Map, ShieldCheck, ClipboardCheck, FileText, Settings } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
@@ -11,6 +11,7 @@ const items = [
   { href: "/trace-lab", label: "Trace Lab", icon: FlaskConical },
   { href: "/review-queue", label: "Review Queue", icon: ClipboardCheck },
   { href: "/reports", label: "Reports", icon: FileText },
+  { href: "/settings", label: "Settings", icon: Settings },
 ];
 
 export function Sidebar() {

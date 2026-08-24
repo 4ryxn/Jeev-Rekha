@@ -27,3 +27,6 @@ button, a { -webkit-tap-highlight-color: transparent; }
   .lift { transition: transform 180ms ease, box-shadow 180ms ease; }
   .lift:hover { transform: translateY(-2px); }
 }
+
+html[data-reduced-motion="true"] *, html[data-reduced-motion="true"] *::before, html[data-reduced-motion="true"] *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; scroll-behavior: auto !important; transition-duration: 0.01ms !important; }
+html[data-map-presentation="controlled"] .maplibregl-canvas, html[data-map-presentation="controlled"] .maplibregl-control-container { opacity: 0 !important; }

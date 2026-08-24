@@ -24,6 +24,7 @@ export interface ContainmentScenarioSummary extends ContainmentSummary {scenario
 export interface ContainmentScenario {id:number;outbreak:Outbreak;horizon_days:number;selected_actions:string[];baseline_summary:ContainmentSummary;scenario_summary:ContainmentScenarioSummary;assumptions:string[];created_at:string}
 export interface ReviewCase {id:number;source_type:string;source_id:string;category:"evidence_gap"|"sync_exception"|"trace_contact";priority:"high"|"medium"|"low";title:string;summary:string;status:"open"|"acknowledged"|"resolved";resolution_note:string|null;created_at:string;acknowledged_at:string|null;resolved_at:string|null;source_summary:string;source_href:string}
 export interface ReportIndex {advisories:{id:number;href:string;title:string}[];traces:{id:number;href:string;title:string}[];containment:{id:number;href:string;title:string}[]}
+export interface PublicMovementCheck {risk_state:RiskState;reasons:string[];evidence_coverage_score:number;information_coverage:string;recommended_action:string;advisory_disclaimer:string;generated_at:string}
 
 const baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000/api/v1";
 

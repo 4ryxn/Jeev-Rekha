@@ -23,6 +23,8 @@ from app.services.containment import ContainmentService
 from app.schemas import ContainmentCreate, ContainmentRead
 from app.models import ContainmentScenario, ReviewCase, Advisory, TraceRun
 from app.schemas import ReviewCasePatch, ReviewCaseRead, ReportIndexRead
+from app.schemas import PublicMovementCheckRequest, PublicMovementCheckResponse
+from app.services.public_movement_check import PublicMovementCheckService
 from app.services.reviews import ReviewService
 
 router = APIRouter(prefix="/api/v1")
@@ -35,11 +37,16 @@ trace_repository = TraceRepository()
 trace_service = TraceService(trace_repository)
 containment_service=ContainmentService()
 review_service=ReviewService()
+public_movement_check_service=PublicMovementCheckService()
 
 
 @router.get("/locations", response_model=list[LocationRead], tags=["locations"])
 def list_locations(type: LocationType | None = None, db: Session = Depends(get_db)) -> list[object]:
     return repository.list_locations(db, type)
+
+@router.post("/public/movement-check",response_model=PublicMovementCheckResponse,tags=["public"])
+def public_movement_check(payload:PublicMovementCheckRequest,db:Session=Depends(get_db)):
+ return public_movement_check_service.check(db,payload.origin_location_id,payload.destination_location_id,payload.species,payload.approximate_animal_count,payload.vehicle_reference,payload.vaccination_evidence)
 
 
 @router.get("/outbreaks", response_model=list[OutbreakRead], tags=["outbreaks"])
