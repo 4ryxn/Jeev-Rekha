@@ -59,7 +59,7 @@ export function PublicMovementCheckPage() {
     setOnline(navigator.onLine);
     const on = () => setOnline(true);
     const off = () => setOnline(false);
-    apiFetch<Location[]>("/locations").then(setLocations).catch(() => setError(copy[language].offline));
+    apiFetch<Location[]>("/locations?source=demo_seed").then(setLocations).catch(() => setError(copy[language].offline));
     window.addEventListener("online", on);
     window.addEventListener("offline", off);
     return () => { window.removeEventListener("online", on); window.removeEventListener("offline", off); };

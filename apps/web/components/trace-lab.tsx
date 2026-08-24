@@ -10,8 +10,11 @@ import { Card } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { type Outbreak, type TraceConfiguration, type TraceDirection, type TraceRun, apiFetch } from "@/lib/api";
+import { DataContextLabel } from "@/components/data-context-control";
+import { sourcePath, useDataContext } from "@/lib/data-context";
 
 export function TraceLab() {
+  const { context } = useDataContext();
   const searchParams = useSearchParams();
   const [outbreaks, setOutbreaks] = useState<Outbreak[]>([]);
   const [selectedOutbreakId, setSelectedOutbreakId] = useState<number | null>(null);
@@ -23,7 +26,7 @@ export function TraceLab() {
 
   useEffect(() => {
     const traceId = searchParams.get("traceId");
-    Promise.all([apiFetch<Outbreak[]>("/outbreaks"), traceId ? apiFetch<TraceRun>(`/traces/${traceId}`) : Promise.resolve(null)])
+    Promise.all([apiFetch<Outbreak[]>(sourcePath("/outbreaks", context)), traceId ? apiFetch<TraceRun>(`/traces/${traceId}`) : Promise.resolve(null)])
       .then(([records, existingTrace]) => {
         const confirmed = records.filter((record) => record.status === "confirmed");
         setOutbreaks(confirmed);
@@ -35,7 +38,7 @@ export function TraceLab() {
       })
       .catch((reason: Error) => setError(reason.message))
       .finally(() => setLoading(false));
-  }, [searchParams]);
+  }, [searchParams, context]);
 
   useEffect(() => {
     if (!selectedOutbreakId || trace?.outbreak.id === selectedOutbreakId) return;
@@ -59,7 +62,7 @@ export function TraceLab() {
   if (error && !outbreaks.length) return <ErrorState message={error} />;
   if (!outbreaks.length) return <EmptyState title="No confirmed outbreaks available" description="A trace can only begin from a confirmed synthetic outbreak record." />;
 
-  return <div className="space-y-6">
+  return <div className="space-y-6"><DataContextLabel />
     <Card className="p-5 md:p-6"><div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_auto]"><div><p className="text-xs font-bold uppercase tracking-[0.14em] text-teal">Trace controls</p><h2 className="mt-2 font-display text-2xl font-semibold tracking-tight">Start an evidence-backed review</h2><p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">Trace results identify recorded contacts for veterinary review. They do not determine disease transmission or assign responsibility.</p></div><label className="block text-sm font-bold text-ink">Confirmed outbreak<select value={selectedOutbreakId ?? ""} onChange={(event) => { setTrace(null); setSelectedOutbreakId(Number(event.target.value)); }} className="mt-2 block min-h-11 w-full rounded-lg border border-line bg-white px-3 text-sm font-normal focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal"><option value="" disabled>Select an outbreak</option>{outbreaks.map((outbreak) => <option value={outbreak.id} key={outbreak.id}>{outbreak.disease_name} · {outbreak.location.name}</option>)}</select></label></div>
       {configuration ? <div className="mt-5 rounded-lg border border-teal/20 bg-teal/5 p-4"><div className="flex gap-3"><CalendarDays className="mt-0.5 text-teal" aria-hidden="true" /><div><p className="font-bold">Configured review window: {configuration.review_window_days} days</p><p className="mt-1 text-sm leading-5 text-slate-700">{configuration.source_label}</p></div></div></div> : <p className="mt-5 text-sm text-slate-600">Loading configured review window…</p>}
       {error ? <p role="alert" className="mt-4 rounded-lg bg-[#FDECEC] p-3 text-sm text-[#8A1C15]">{error}</p> : null}

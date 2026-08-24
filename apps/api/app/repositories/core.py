@@ -25,8 +25,11 @@ class OperationsRepository:
     def get_location(self, db: Session, location_id: int) -> Location | None:
         return db.get(Location, location_id)
 
-    def list_outbreaks(self, db: Session) -> list[Outbreak]:
-        return list(db.scalars(select(Outbreak).options(selectinload(Outbreak.location)).order_by(Outbreak.detected_at.desc())))
+    def list_outbreaks(self, db: Session, source: LocationDataSource | None = None) -> list[Outbreak]:
+        query = select(Outbreak).options(selectinload(Outbreak.location)).order_by(Outbreak.detected_at.desc())
+        if source:
+            query = query.where(Outbreak.data_source == source)
+        return list(db.scalars(query))
 
     def get_outbreak(self, db: Session, outbreak_id: int) -> Outbreak | None:
         return db.scalar(select(Outbreak).options(selectinload(Outbreak.location)).where(Outbreak.id == outbreak_id))
@@ -45,13 +48,15 @@ class OperationsRepository:
         db.flush()
         return vehicle
 
-    def list_consignments(self, db: Session) -> list[Consignment]:
+    def list_consignments(self, db: Session, source: LocationDataSource | None = None) -> list[Consignment]:
         query = select(Consignment).options(
             selectinload(Consignment.origin_location),
             selectinload(Consignment.destination_location),
             selectinload(Consignment.vehicle),
             selectinload(Consignment.movement_events).selectinload(MovementEvent.location),
         ).order_by(Consignment.departure_at.desc())
+        if source:
+            query = query.where(Consignment.data_source == source)
         return list(db.scalars(query))
 
     def get_consignment(self, db: Session, consignment_id: int) -> Consignment | None:

@@ -104,13 +104,14 @@ class Vehicle(TimestampedModel, Base):
 
 class Outbreak(TimestampedModel, Base):
     __tablename__ = "outbreaks"
-    __table_args__ = (Index("ix_outbreaks_status_detected_at", "status", "detected_at"),)
+    __table_args__ = (Index("ix_outbreaks_status_detected_at", "status", "detected_at"), Index("ix_outbreaks_data_source_detected_at", "data_source", "detected_at"))
 
     id: Mapped[int] = mapped_column(primary_key=True)
     disease_name: Mapped[str] = mapped_column(String(120), nullable=False)
     species: Mapped[str] = mapped_column(String(80), nullable=False)
     status: Mapped[OutbreakStatus] = mapped_column(Enum(OutbreakStatus, values_callable=enum_values), nullable=False)
     location_id: Mapped[int] = mapped_column(ForeignKey("locations.id"), nullable=False)
+    data_source: Mapped[LocationDataSource] = mapped_column(Enum(LocationDataSource, values_callable=enum_values), nullable=False, default=LocationDataSource.DEMO_SEED)
     detected_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     confirmed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     suspected_cases: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
@@ -128,11 +129,13 @@ class Consignment(TimestampedModel, Base):
         CheckConstraint("animal_count > 0", name="ck_consignments_positive_animal_count"),
         CheckConstraint("origin_location_id <> destination_location_id", name="ck_consignments_different_locations"),
         Index("ix_consignments_departure_at", "departure_at"),
+        Index("ix_consignments_data_source_departure_at", "data_source", "departure_at"),
     )
 
     id: Mapped[int] = mapped_column(primary_key=True)
     origin_location_id: Mapped[int] = mapped_column(ForeignKey("locations.id"), nullable=False)
     destination_location_id: Mapped[int] = mapped_column(ForeignKey("locations.id"), nullable=False)
+    data_source: Mapped[LocationDataSource] = mapped_column(Enum(LocationDataSource, values_callable=enum_values), nullable=False, default=LocationDataSource.DEMO_SEED)
     species: Mapped[str] = mapped_column(String(80), nullable=False)
     animal_count: Mapped[int] = mapped_column(Integer, nullable=False)
     vehicle_id: Mapped[int] = mapped_column(ForeignKey("vehicles.id"), nullable=False)
@@ -199,6 +202,10 @@ class Advisory(Base):
     rules_version: Mapped[str] = mapped_column(String(32), nullable=False)
     consignment: Mapped[Consignment] = relationship(back_populates="advisories")
 
+    @property
+    def data_source(self) -> LocationDataSource:
+        return self.consignment.data_source
+
 
 class RouteSegment(Base):
     __tablename__ = "route_segments"
@@ -229,6 +236,10 @@ class RouteAssessment(Base):
     assessed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     consignment: Mapped[Consignment] = relationship()
 
+    @property
+    def data_source(self) -> LocationDataSource:
+        return self.consignment.data_source
+
 
 class TraceRun(TimestampedModel, Base):
     """Persisted trace-run setup and output ownership; trace algorithms arrive in Phase 5A.2."""
@@ -249,6 +260,10 @@ class TraceRun(TimestampedModel, Base):
     findings: Mapped[list["TraceFinding"]] = relationship(
         cascade="all, delete-orphan", back_populates="trace_run", order_by="TraceFinding.event_timestamp"
     )
+
+    @property
+    def data_source(self) -> LocationDataSource:
+        return self.outbreak.data_source
 
 
 class TraceFinding(TimestampedModel, Base):
@@ -284,6 +299,8 @@ class SyncReceipt(Base):
     entity_type: Mapped[str | None] = mapped_column(String(32))
     entity_id: Mapped[int | None] = mapped_column(Integer)
     payload_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    # A rejected sync payload has no created root entity to inherit from.
+    data_source: Mapped[LocationDataSource | None] = mapped_column(Enum(LocationDataSource, values_callable=enum_values))
     received_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 
 class ContainmentScenario(TimestampedModel, Base):
@@ -297,6 +314,10 @@ class ContainmentScenario(TimestampedModel, Base):
     scenario_summary: Mapped[dict[str,object]]=mapped_column(JSONB,nullable=False)
     assumptions: Mapped[list[str]]=mapped_column(JSONB,nullable=False)
     outbreak: Mapped[Outbreak]=relationship()
+
+    @property
+    def data_source(self) -> LocationDataSource:
+        return self.outbreak.data_source
 
 class ReviewCase(TimestampedModel, Base):
     __tablename__="review_cases"

@@ -4,7 +4,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
 from app.models import Advisory, Consignment, MovementEvent, Outbreak, SurveillanceUpdate, VaccinationEvent
-from app.models.core import OutbreakStatus
+from app.models.core import LocationDataSource, OutbreakStatus
 
 
 class AdvisoryRepository:
@@ -51,8 +51,11 @@ class AdvisoryRepository:
             selectinload(Advisory.consignment).selectinload(Consignment.vehicle),
         ).where(Advisory.consignment_id == consignment_id).order_by(Advisory.evaluated_at.desc())))
 
-    def list_recent_advisories(self, db: Session) -> list[Advisory]:
-        return list(db.scalars(select(Advisory).options(
+    def list_recent_advisories(self, db: Session, source: LocationDataSource | None = None) -> list[Advisory]:
+        query = select(Advisory).options(
             selectinload(Advisory.consignment).selectinload(Consignment.origin_location),
             selectinload(Advisory.consignment).selectinload(Consignment.destination_location),
-        ).order_by(Advisory.evaluated_at.desc()).limit(12)))
+        ).order_by(Advisory.evaluated_at.desc()).limit(12)
+        if source:
+            query = query.join(Advisory.consignment).where(Consignment.data_source == source)
+        return list(db.scalars(query))

@@ -72,8 +72,8 @@ def public_movement_check(payload:PublicMovementCheckRequest,db:Session=Depends(
 
 
 @router.get("/outbreaks", response_model=list[OutbreakRead], tags=["outbreaks"])
-def list_outbreaks(db: Session = Depends(get_db)) -> list[object]:
-    return repository.list_outbreaks(db)
+def list_outbreaks(source: LocationDataSource | None = None, db: Session = Depends(get_db)) -> list[object]:
+    return repository.list_outbreaks(db, source)
 
 
 @router.post("/outbreaks", response_model=OutbreakRead, status_code=status.HTTP_201_CREATED, tags=["outbreaks"])
@@ -90,8 +90,8 @@ def get_outbreak(outbreak_id: int, db: Session = Depends(get_db)) -> object:
 
 
 @router.get("/consignments", response_model=list[ConsignmentRead], tags=["consignments"])
-def list_consignments(db: Session = Depends(get_db)) -> list[object]:
-    return repository.list_consignments(db)
+def list_consignments(source: LocationDataSource | None = None, db: Session = Depends(get_db)) -> list[object]:
+    return repository.list_consignments(db, source)
 
 
 @router.post("/consignments", response_model=ConsignmentRead, status_code=status.HTTP_201_CREATED, tags=["consignments"])
@@ -121,8 +121,8 @@ def get_advisory(advisory_id: int, db: Session = Depends(get_db)) -> object:
 
 
 @router.get("/advisories", response_model=list[AdvisoryRead], tags=["advisories"])
-def list_advisories(db: Session = Depends(get_db)) -> list[object]:
-    return advisory_repository.list_recent_advisories(db)
+def list_advisories(source: LocationDataSource | None = None, db: Session = Depends(get_db)) -> list[object]:
+    return advisory_repository.list_recent_advisories(db, source)
 
 
 @router.get("/consignments/{consignment_id}/advisories", response_model=list[AdvisoryRead], tags=["advisories"])
@@ -180,6 +180,11 @@ def get_trace(trace_run_id: int, db: Session = Depends(get_db)) -> object:
     return serialize_trace(db, trace)
 
 
+@router.get("/traces", response_model=list[TraceRunResponse], tags=["traces"])
+def list_traces(source: LocationDataSource | None = None, db: Session = Depends(get_db)) -> list[object]:
+    return [serialize_trace(db, trace) for trace in trace_repository.list_trace_runs(db, source)]
+
+
 @router.get("/outbreaks/{outbreak_id}/traces", response_model=list[TraceRunResponse], tags=["traces"])
 def list_outbreak_traces(outbreak_id: int, db: Session = Depends(get_db)) -> list[object]:
     if not repository.get_outbreak(db, outbreak_id):
@@ -197,6 +202,7 @@ def serialize_trace(db: Session, trace: TraceRun) -> TraceRunResponse:
         id=trace.id,
         outbreak=trace.outbreak,
         direction=trace.direction,
+        data_source=trace.outbreak.data_source,
         window_start=trace.window_start,
         window_end=trace.window_end,
         review_window_days=review_window_days,
@@ -225,12 +231,13 @@ def sync_operations(payload: SyncBatchRequest, db: Session = Depends(get_db)) ->
         digest = hashlib.sha256(json.dumps(operation.payload, sort_keys=True, default=str).encode()).hexdigest()
         try:
             entity = service.create_consignment(db, ConsignmentCreate.model_validate(operation.payload)) if operation.operation_type == "create_consignment" else service.create_outbreak(db, OutbreakCreate.model_validate(operation.payload))
-            receipt = SyncReceipt(client_operation_id=operation.client_operation_id, operation_type=operation.operation_type, status="synced", entity_type="consignment" if operation.operation_type == "create_consignment" else "outbreak", entity_id=entity.id, payload_hash=digest)
+            receipt = SyncReceipt(client_operation_id=operation.client_operation_id, operation_type=operation.operation_type, status="synced", entity_type="consignment" if operation.operation_type == "create_consignment" else "outbreak", entity_id=entity.id, payload_hash=digest, data_source=entity.data_source)
             db.add(receipt); db.commit(); db.refresh(receipt)
             results.append(SyncOperationResult(client_operation_id=receipt.client_operation_id, operation_type=receipt.operation_type, status="synced", entity_type=receipt.entity_type, entity_id=receipt.entity_id, received_at=receipt.received_at))
         except (ValidationError, HTTPException, ValueError) as error:
             detail = error.detail if isinstance(error, HTTPException) else str(error)
-            receipt = SyncReceipt(client_operation_id=operation.client_operation_id, operation_type=operation.operation_type, status="needs_review", entity_type=None, entity_id=None, payload_hash=digest)
+            submitted_source = operation.payload.get("data_source")
+            receipt = SyncReceipt(client_operation_id=operation.client_operation_id, operation_type=operation.operation_type, status="needs_review", entity_type=None, entity_id=None, payload_hash=digest, data_source=submitted_source if submitted_source in {"demo_seed", "pilot_entered"} else None)
             db.add(receipt); db.commit(); db.refresh(receipt)
             results.append(SyncOperationResult(client_operation_id=operation.client_operation_id, operation_type=operation.operation_type, status="needs_review", received_at=receipt.received_at, error=str(detail)))
     return results
@@ -248,27 +255,32 @@ def list_containment(outbreak_id:int,db:Session=Depends(get_db)):
  if not repository.get_outbreak(db,outbreak_id): raise HTTPException(404,"Outbreak not found")
  return containment_service.list(db,outbreak_id)
 
-def serialize_review(item:ReviewCase):
- return {**{key:getattr(item,key) for key in ("id","source_type","source_id","category","priority","title","summary","status","resolution_note","created_at","acknowledged_at","resolved_at")},**review_service.source_meta(item)}
+@router.get("/containment-scenarios", response_model=list[ContainmentRead])
+def list_all_containment(source: LocationDataSource | None = None, db: Session = Depends(get_db)):
+ items = list(db.scalars(select(ContainmentScenario).order_by(ContainmentScenario.created_at.desc())))
+ return [item for item in items if source is None or item.outbreak.data_source == source]
+
+def serialize_review(item:ReviewCase, db: Session):
+ return {**{key:getattr(item,key) for key in ("id","source_type","source_id","category","priority","title","summary","status","resolution_note","created_at","acknowledged_at","resolved_at")},**review_service.source_meta(item, db)}
 @router.get("/review-cases",response_model=list[ReviewCaseRead],tags=["review-cases"])
-def list_review_cases(status_filter:str|None=Query(None,alias="status"),category:str|None=None,db:Session=Depends(get_db)):
- return [serialize_review(item) for item in review_service.list(db,status_filter,category)]
+def list_review_cases(status_filter:str|None=Query(None,alias="status"),category:str|None=None,source: LocationDataSource | None = None,db:Session=Depends(get_db)):
+ return [serialize_review(item, db) for item in review_service.list(db,status_filter,category,source)]
 @router.get("/review-cases/{case_id}",response_model=ReviewCaseRead,tags=["review-cases"])
 def get_review_case(case_id:int,db:Session=Depends(get_db)):
  item=review_service.get(db,case_id)
  if not item: raise HTTPException(404,"Review case not found")
- return serialize_review(item)
+ return serialize_review(item, db)
 @router.patch("/review-cases/{case_id}",response_model=ReviewCaseRead,tags=["review-cases"])
 def update_review_case(case_id:int,payload:ReviewCasePatch,db:Session=Depends(get_db)):
  item=review_service.get(db,case_id)
  if not item: raise HTTPException(404,"Review case not found")
- return serialize_review(review_service.update(db,item,payload.status,payload.resolution_note or ""))
+ return serialize_review(review_service.update(db,item,payload.status,payload.resolution_note or ""), db)
 
 @router.get("/reports",response_model=ReportIndexRead,tags=["reports"])
-def list_reports(db:Session=Depends(get_db)):
- traces=list(db.scalars(select(TraceRun).order_by(TraceRun.created_at.desc()).limit(12)))
- scenarios=list(db.scalars(select(ContainmentScenario).order_by(ContainmentScenario.created_at.desc()).limit(12)))
- return {"advisories":[{"id":x.id,"href":f"/reports/advisories/{x.id}","title":f"{x.risk_state.value.title()} movement advisory"} for x in advisory_repository.list_recent_advisories(db)],"traces":[{"id":x.id,"href":f"/reports/traces/{x.id}","title":f"{x.direction.replace('_',' ').title()} trace contact review"} for x in traces],"containment":[{"id":x.id,"href":f"/containment-scenarios/{x.id}/print","title":"Containment action brief"} for x in scenarios]}
+def list_reports(source: LocationDataSource | None = None, db:Session=Depends(get_db)):
+ traces=trace_repository.list_trace_runs(db, source)[:12]
+ scenarios=[item for item in db.scalars(select(ContainmentScenario).order_by(ContainmentScenario.created_at.desc()).limit(12)) if source is None or item.outbreak.data_source == source]
+ return {"advisories":[{"id":x.id,"href":f"/reports/advisories/{x.id}","title":f"{x.risk_state.value.title()} movement advisory","data_source":x.data_source} for x in advisory_repository.list_recent_advisories(db, source)],"traces":[{"id":x.id,"href":f"/reports/traces/{x.id}","title":f"{x.direction.replace('_',' ').title()} trace contact review","data_source":x.outbreak.data_source} for x in traces],"containment":[{"id":x.id,"href":f"/containment-scenarios/{x.id}/print","title":"Containment action brief","data_source":x.outbreak.data_source} for x in scenarios]}
 @router.get("/reports/{kind}/{source_id}",tags=["reports"])
 def get_report_source(kind:str,source_id:int,db:Session=Depends(get_db)):
  if kind=="advisories": item=advisory_repository.get_advisory(db,source_id)

@@ -109,6 +109,7 @@ class OutbreakCreate(BaseModel):
     species: str = Field(min_length=2, max_length=80)
     status: OutbreakStatus
     location_id: int = Field(gt=0)
+    data_source: LocationDataSource = LocationDataSource.DEMO_SEED
     detected_at: datetime
     confirmed_at: datetime | None = None
     suspected_cases: int = Field(default=0, ge=0)
@@ -132,6 +133,7 @@ class OutbreakRead(ORMModel):
     species: str
     status: OutbreakStatus
     location_id: int
+    data_source: LocationDataSource
     detected_at: datetime
     confirmed_at: datetime | None
     suspected_cases: int
@@ -146,6 +148,7 @@ class OutbreakRead(ORMModel):
 class ConsignmentCreate(BaseModel):
     origin_location_id: int = Field(gt=0)
     destination_location_id: int = Field(gt=0)
+    data_source: LocationDataSource = LocationDataSource.DEMO_SEED
     species: str = Field(min_length=2, max_length=80)
     animal_count: int = Field(gt=0, le=100000)
     vehicle_reference: str = Field(min_length=3, max_length=64)
@@ -183,6 +186,7 @@ class ConsignmentRead(ORMModel):
     id: int
     origin_location_id: int
     destination_location_id: int
+    data_source: LocationDataSource
     species: str
     animal_count: int
     vehicle_id: int
@@ -223,6 +227,7 @@ class AdvisoryRead(ORMModel):
     recommended_action: str
     evaluated_at: datetime
     rules_version: str
+    data_source: LocationDataSource
     consignment: ConsignmentRead
 
 

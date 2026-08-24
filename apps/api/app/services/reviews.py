@@ -1,7 +1,8 @@
 from datetime import UTC, datetime
 from sqlalchemy import select
 from sqlalchemy.orm import Session
-from app.models import Advisory, ReviewCase, SyncReceipt, TraceFinding
+from app.models import Advisory, ReviewCase, SyncReceipt, TraceFinding, TraceRun
+from app.models.core import LocationDataSource
 from app.models.core import RiskState
 
 class ReviewService:
@@ -17,17 +18,28 @@ class ReviewService:
    if not db.scalar(select(ReviewCase.id).where(ReviewCase.source_type==source_type,ReviewCase.source_id==source_id,ReviewCase.category==category)):
     db.add(ReviewCase(source_type=source_type,source_id=source_id,category=category,priority=priority,title=title,summary=summary))
   db.commit()
- def list(self,db,status=None,category=None):
+ def list(self,db,status=None,category=None,source:LocationDataSource|None=None):
   self.refresh(db); q=select(ReviewCase)
   if status:q=q.where(ReviewCase.status==status)
   if category:q=q.where(ReviewCase.category==category)
-  return list(db.scalars(q.order_by(ReviewCase.created_at.desc())))
+  cases=list(db.scalars(q.order_by(ReviewCase.created_at.desc())))
+  return [item for item in cases if source is None or self.source_data_source(item, db)==source]
  def get(self,db,id): self.refresh(db); return db.get(ReviewCase,id)
  def update(self,db,item,status,note):
   now=datetime.now(UTC)
   if status=="acknowledged": item.status="acknowledged";item.acknowledged_at=now
   else: item.status="resolved";item.resolution_note=note.strip();item.resolved_at=now
   db.commit();db.refresh(item);return item
- def source_meta(self,item):
+ def source_data_source(self,item,db):
+  if item.source_type=="advisory":
+   advisory=db.get(Advisory,int(item.source_id)); return advisory.data_source if advisory else None
+  if item.source_type=="trace_finding":
+   finding=db.get(TraceFinding,int(item.source_id));
+   if not finding:return None
+   trace=db.get(TraceRun,finding.trace_run_id); return trace.data_source if trace else None
+  if item.source_type=="sync_operation":
+   receipt=db.scalar(select(SyncReceipt).where(SyncReceipt.client_operation_id==item.source_id)); return receipt.data_source if receipt else None
+  return None
+ def source_meta(self,item,db):
   href={"advisory":f"/advisories/{item.source_id}","trace_finding":"/trace-lab","sync_operation":"/register"}[item.source_type]
-  return {"source_summary":item.summary,"source_href":href}
+  return {"source_summary":item.summary,"source_href":href,"data_source":self.source_data_source(item,db)}

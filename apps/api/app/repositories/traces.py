@@ -4,6 +4,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
 from app.models import Location, Outbreak, TraceFinding, TraceRun
+from app.models.core import LocationDataSource
 
 
 class TraceRepository:
@@ -35,3 +36,9 @@ class TraceRepository:
                 .order_by(TraceRun.created_at.desc())
             )
         )
+
+    def list_trace_runs(self, db: Session, source: LocationDataSource | None = None) -> list[TraceRun]:
+        query = select(TraceRun).options(selectinload(TraceRun.findings), selectinload(TraceRun.outbreak).selectinload(Outbreak.location)).order_by(TraceRun.created_at.desc())
+        if source:
+            query = query.join(TraceRun.outbreak).where(Outbreak.data_source == source)
+        return list(db.scalars(query))

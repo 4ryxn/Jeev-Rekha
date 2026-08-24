@@ -73,14 +73,14 @@ def seed() -> str:
         now = datetime.now(UTC).replace(microsecond=0)
 
         db.add_all([
-            Outbreak(disease_name="Foot-and-mouth disease", species="Cattle", status=OutbreakStatus.CONFIRMED, location_id=by_name["Haritpur"].id, detected_at=now - timedelta(days=3), confirmed_at=now - timedelta(days=2), suspected_cases=18, confirmed_cases=12, mortality_count=1, verification_level=VerificationLevel.LABORATORY_CONFIRMED, notes="Synthetic demonstration record; no live disease feed."),
-            Outbreak(disease_name="Peste des petits ruminants", species="Goat", status=OutbreakStatus.SUSPECTED, location_id=by_name["Madhavpura"].id, detected_at=now - timedelta(days=1), suspected_cases=9, confirmed_cases=0, mortality_count=0, verification_level=VerificationLevel.REPORTED, notes="Synthetic demonstration record pending fictional verification."),
-            Outbreak(disease_name="Haemorrhagic septicaemia", species="Buffalo", status=OutbreakStatus.CLOSED, location_id=by_name["Kaveri Hamlet"].id, detected_at=now - timedelta(days=28), confirmed_at=now - timedelta(days=26), suspected_cases=7, confirmed_cases=5, mortality_count=0, verification_level=VerificationLevel.VETERINARY_VERIFIED, notes="Synthetic closed demonstration record."),
+            Outbreak(disease_name="Foot-and-mouth disease", species="Cattle", status=OutbreakStatus.CONFIRMED, location_id=by_name["Haritpur"].id, data_source=LocationDataSource.DEMO_SEED, detected_at=now - timedelta(days=3), confirmed_at=now - timedelta(days=2), suspected_cases=18, confirmed_cases=12, mortality_count=1, verification_level=VerificationLevel.LABORATORY_CONFIRMED, notes="Synthetic demonstration record; no live disease feed."),
+            Outbreak(disease_name="Peste des petits ruminants", species="Goat", status=OutbreakStatus.SUSPECTED, location_id=by_name["Madhavpura"].id, data_source=LocationDataSource.DEMO_SEED, detected_at=now - timedelta(days=1), suspected_cases=9, confirmed_cases=0, mortality_count=0, verification_level=VerificationLevel.REPORTED, notes="Synthetic demonstration record pending fictional verification."),
+            Outbreak(disease_name="Haemorrhagic septicaemia", species="Buffalo", status=OutbreakStatus.CLOSED, location_id=by_name["Kaveri Hamlet"].id, data_source=LocationDataSource.DEMO_SEED, detected_at=now - timedelta(days=28), confirmed_at=now - timedelta(days=26), suspected_cases=7, confirmed_cases=5, mortality_count=0, verification_level=VerificationLevel.VETERINARY_VERIFIED, notes="Synthetic closed demonstration record."),
         ])
         consignments = [
-            Consignment(origin_location_id=by_name["Sundargram"].id, destination_location_id=by_name["Sampoorna Livestock Market"].id, species="Cattle", animal_count=14, vehicle_id=vehicles[0].id, departure_at=now - timedelta(days=5), vaccination_evidence=VaccinationEvidence.VERIFIED),
-            Consignment(origin_location_id=by_name["Asha Nagar"].id, destination_location_id=by_name["Kaveri Cattle Market"].id, species="Goat", animal_count=32, vehicle_id=vehicles[1].id, departure_at=now - timedelta(days=3), vaccination_evidence=VaccinationEvidence.DECLARED),
-            Consignment(origin_location_id=by_name["Navjeevan"].id, destination_location_id=by_name["Madhavpura"].id, species="Buffalo", animal_count=8, vehicle_id=vehicles[2].id, departure_at=now - timedelta(days=1), vaccination_evidence=VaccinationEvidence.UNKNOWN),
+            Consignment(origin_location_id=by_name["Sundargram"].id, destination_location_id=by_name["Sampoorna Livestock Market"].id, data_source=LocationDataSource.DEMO_SEED, species="Cattle", animal_count=14, vehicle_id=vehicles[0].id, departure_at=now - timedelta(days=5), vaccination_evidence=VaccinationEvidence.VERIFIED),
+            Consignment(origin_location_id=by_name["Asha Nagar"].id, destination_location_id=by_name["Kaveri Cattle Market"].id, data_source=LocationDataSource.DEMO_SEED, species="Goat", animal_count=32, vehicle_id=vehicles[1].id, departure_at=now - timedelta(days=3), vaccination_evidence=VaccinationEvidence.DECLARED),
+            Consignment(origin_location_id=by_name["Navjeevan"].id, destination_location_id=by_name["Madhavpura"].id, data_source=LocationDataSource.DEMO_SEED, species="Buffalo", animal_count=8, vehicle_id=vehicles[2].id, departure_at=now - timedelta(days=1), vaccination_evidence=VaccinationEvidence.UNKNOWN),
         ]
         db.add_all(consignments)
         db.flush()
@@ -136,6 +136,7 @@ def add_phase_three_synthetic_data(db, by_name: dict[str, Location], now: dateti
         consignment = Consignment(
             origin_location_id=by_name[origin_name].id,
             destination_location_id=by_name[destination_name].id,
+            data_source=LocationDataSource.DEMO_SEED,
             species=species,
             animal_count=animal_count,
             vehicle_id=vehicle.id,

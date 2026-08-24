@@ -62,7 +62,7 @@ def test_archive_unused_location_and_include_inactive_filter() -> None:
 def test_referenced_pilot_location_cannot_be_archived() -> None:
     seed()
     created = client.post("/api/v1/locations", json=pilot_payload()).json()
-    origin = client.get("/api/v1/locations?type=village").json()[0]
+    origin = client.post("/api/v1/locations", json=pilot_payload("Pilot Origin")).json()
     consignment = client.post("/api/v1/consignments", json={
         "origin_location_id": origin["id"],
         "destination_location_id": created["id"],
@@ -71,6 +71,7 @@ def test_referenced_pilot_location_cannot_be_archived() -> None:
         "vehicle_reference": "PILOT-REF-001",
         "departure_at": datetime.now(UTC).isoformat(),
         "vaccination_evidence": "verified",
+        "data_source": "pilot_entered",
     })
     assert consignment.status_code == 201
     archive = client.post(f"/api/v1/locations/{created['id']}/archive")

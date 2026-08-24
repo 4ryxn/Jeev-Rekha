@@ -9,8 +9,12 @@ import { Card } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { type Advisory, type Location, type Outbreak, type RouteAssessment, apiFetch } from "@/lib/api";
+import { DataContextLabel } from "@/components/data-context-control";
+import { sourcePath, useDataContext } from "@/lib/data-context";
+import { DataSourceBadge } from "@/components/data-source-badge";
 
 export function MapAdvisoriesContent() {
+  const { context } = useDataContext();
   const [advisories, setAdvisories] = useState<Advisory[]>([]);
   const [locations, setLocations] = useState<Location[]>([]);
   const [outbreaks, setOutbreaks] = useState<Outbreak[]>([]);
@@ -21,7 +25,7 @@ export function MapAdvisoriesContent() {
   const [error, setError] = useState("");
 
   useEffect(() => {
-    Promise.all([apiFetch<Advisory[]>("/advisories"), apiFetch<Location[]>("/locations"), apiFetch<Outbreak[]>("/outbreaks")])
+    Promise.all([apiFetch<Advisory[]>(sourcePath("/advisories", context)), apiFetch<Location[]>(sourcePath("/locations", context)), apiFetch<Outbreak[]>(sourcePath("/outbreaks", context))])
       .then(([loadedAdvisories, loadedLocations, loadedOutbreaks]) => {
         setAdvisories(loadedAdvisories);
         setLocations(loadedLocations);
@@ -33,7 +37,7 @@ export function MapAdvisoriesContent() {
         setError(reason.message);
         setState("error");
       });
-  }, []);
+  }, [context]);
 
   useEffect(() => {
     const selected = advisories.find((advisory) => advisory.id === selectedAdvisoryId);
@@ -58,7 +62,7 @@ export function MapAdvisoriesContent() {
   const counts = { confirmed: outbreaks.filter((outbreak) => outbreak.status === "confirmed").length, suspected: outbreaks.filter((outbreak) => outbreak.status === "suspected").length };
   const advisoryCounts = ["green", "amber", "red", "grey"].map((risk) => ({ risk, count: advisories.filter((advisory) => advisory.risk_state === risk).length }));
 
-  return <div className="space-y-6">
+  return <div className="space-y-6"><DataContextLabel />
     <section className="rounded-xl bg-ink p-6 text-white md:p-7"><p className="text-xs font-bold uppercase tracking-[0.15em] text-lime">Synthetic operations map</p><div className="mt-3 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between"><div><h2 className="font-display text-3xl font-semibold tracking-tight">Outbreak context and movement advisories</h2><p className="mt-2 max-w-2xl text-sm leading-6 text-white/75">Fictional persisted data only. No live INAPH, NADRES, IDSP, LGD, or government integration is connected. Results require authorised veterinary review.</p></div><div className="flex gap-3"><MapMetric value={counts.confirmed} label="Confirmed zones" /><MapMetric value={counts.suspected} label="Suspected zones" /></div></div></section>
 
     <Card className="p-5 md:p-6">
@@ -75,7 +79,7 @@ export function MapAdvisoriesContent() {
 
     <section className="grid gap-6 lg:grid-cols-[0.85fr_1.15fr]">
       <Card className="p-5 md:p-6"><p className="text-xs font-bold uppercase tracking-[0.14em] text-teal">Advisory totals</p><h2 className="mt-2 font-display text-2xl font-semibold">Evaluated movement results</h2><div className="mt-5 grid grid-cols-2 gap-3">{advisoryCounts.map(({ risk, count }) => <div key={risk} className="rounded-lg border border-line bg-paper p-3"><StatusBadge state={risk as Advisory["risk_state"]} label={risk.toUpperCase()} /><p className="mt-3 font-display text-3xl font-semibold">{count}</p></div>)}</div></Card>
-      <Card className="p-5 md:p-6"><div className="flex items-start justify-between gap-4"><div><p className="text-xs font-bold uppercase tracking-[0.14em] text-teal">Recent advisories</p><h2 className="mt-2 font-display text-2xl font-semibold">Select a route to display</h2></div><Route className="text-teal" aria-hidden="true" /></div>{advisories.length === 0 ? <div className="mt-5"><EmptyState title="No evaluated consignments yet" description="Register and evaluate a synthetic consignment to view its advisory and route assessment." /></div> : <div className="mt-5 space-y-2">{advisories.slice(0, 5).map((advisory) => { const selected = advisory.id === selectedAdvisoryId; return <button type="button" aria-pressed={selected} onClick={() => setSelectedAdvisoryId(advisory.id)} key={advisory.id} className={`flex w-full items-center justify-between gap-3 rounded-xl border p-3 text-left transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal ${selected ? "border-2 border-teal bg-paper" : "border-line hover:bg-paper"}`}><div className="flex min-w-0 items-start gap-2"><CheckCircle2 className={selected ? "mt-0.5 shrink-0 text-teal" : "mt-0.5 shrink-0 text-slate-400"} size={17} aria-hidden="true" /><div><p className="text-sm font-bold text-ink">{advisory.consignment.origin_location.name} → {advisory.consignment.destination_location.name}</p><p className="mt-1 text-sm text-slate-600">{advisory.consignment.species} · {advisory.consignment.animal_count} animals</p>{selected && <p className="mt-2 text-xs font-bold text-teal">Selected route on map</p>}</div></div><StatusBadge state={advisory.risk_state} label={advisory.risk_state.toUpperCase()} /></button>; })}</div>}</Card>
+      <Card className="p-5 md:p-6"><div className="flex items-start justify-between gap-4"><div><p className="text-xs font-bold uppercase tracking-[0.14em] text-teal">Recent advisories</p><h2 className="mt-2 font-display text-2xl font-semibold">Select a route to display</h2></div><Route className="text-teal" aria-hidden="true" /></div>{advisories.length === 0 ? <div className="mt-5"><EmptyState title="No evaluated consignments yet" description="Register and evaluate a record in this data context to view its advisory and route assessment." /></div> : <div className="mt-5 space-y-2">{advisories.slice(0, 5).map((advisory) => { const selected = advisory.id === selectedAdvisoryId; return <button type="button" aria-pressed={selected} onClick={() => setSelectedAdvisoryId(advisory.id)} key={advisory.id} className={`flex w-full items-center justify-between gap-3 rounded-xl border p-3 text-left transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal ${selected ? "border-2 border-teal bg-paper" : "border-line hover:bg-paper"}`}><div className="flex min-w-0 items-start gap-2"><CheckCircle2 className={selected ? "mt-0.5 shrink-0 text-teal" : "mt-0.5 shrink-0 text-slate-400"} size={17} aria-hidden="true" /><div><p className="text-sm font-bold text-ink">{advisory.consignment.origin_location.name} → {advisory.consignment.destination_location.name}</p><p className="mt-1 text-sm text-slate-600">{advisory.consignment.species} · {advisory.consignment.animal_count} animals</p>{context === "all" && <span className="mt-2 inline-block"><DataSourceBadge source={advisory.data_source} /></span>}{selected && <p className="mt-2 text-xs font-bold text-teal">Selected route on map</p>}</div></div><StatusBadge state={advisory.risk_state} label={advisory.risk_state.toUpperCase()} /></button>; })}</div>}</Card>
     </section>
   </div>;
 }

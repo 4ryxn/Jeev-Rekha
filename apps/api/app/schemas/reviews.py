@@ -1,6 +1,7 @@
 from datetime import datetime
 from typing import Literal
 from pydantic import BaseModel, Field, model_validator
+from app.models.core import LocationDataSource
 
 class ReviewCasePatch(BaseModel):
  status: Literal["acknowledged","resolved"]
@@ -11,4 +12,4 @@ class ReviewCasePatch(BaseModel):
   return self
 class ReviewCaseRead(BaseModel):
  model_config={"from_attributes":True}
- id:int; source_type:str; source_id:str; category:str; priority:str; title:str; summary:str; status:str; resolution_note:str|None; created_at:datetime; acknowledged_at:datetime|None; resolved_at:datetime|None; source_summary:str; source_href:str
+ id:int; source_type:str; source_id:str; category:str; priority:str; title:str; summary:str; status:str; resolution_note:str|None; created_at:datetime; acknowledged_at:datetime|None; resolved_at:datetime|None; source_summary:str; source_href:str; data_source:LocationDataSource|None=None

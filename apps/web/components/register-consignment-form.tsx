@@ -4,16 +4,18 @@ import { CheckCircle2, LoaderCircle } from "lucide-react";
 import Link from "next/link";
 import { FormEvent, useEffect, useState } from "react";
 
-import { apiFetch, type Advisory, type Consignment, type Location } from "@/lib/api";
+import { apiFetch, type Advisory, type Consignment, type Location, type LocationDataSource } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { submitRegistration } from "@/lib/registration-submit";
 import { loadLocationReferences } from "@/lib/location-references";
+import { useDataContext } from "@/lib/data-context";
 
 const localDateTime = () => new Date(Date.now() - new Date().getTimezoneOffset() * 60_000).toISOString().slice(0, 16);
 const consignmentControlClass = "h-16 w-full appearance-auto rounded-xl border border-line bg-white px-4 py-0 text-base leading-6 text-ink";
 
 export function RegisterConsignmentForm() {
+  const { context } = useDataContext();
   const [locations, setLocations] = useState<Location[]>([]);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
@@ -24,10 +26,13 @@ export function RegisterConsignmentForm() {
   const [isOtherSpecies, setIsOtherSpecies] = useState(false);
   const [originLocationId, setOriginLocationId] = useState<number | null>(null);
   const [destinationLocationId, setDestinationLocationId] = useState<number | null>(null);
+  const [recordSource, setRecordSource] = useState<LocationDataSource | "">(context === "all" ? "" : context);
 
   useEffect(() => {
-    loadLocationReferences().then(setLocations).catch((reason: Error) => setError(reason.message)).finally(() => setLoading(false));
-  }, []);
+    if (!recordSource) { setLocations([]); setLoading(false); return; }
+    setLoading(true); setOriginLocationId(null); setDestinationLocationId(null);
+    loadLocationReferences(recordSource).then(setLocations).catch((reason: Error) => setError(reason.message)).finally(() => setLoading(false));
+  }, [recordSource]);
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -36,6 +41,7 @@ export function RegisterConsignmentForm() {
     const origin = Number(values.get("origin_location_id"));
     const destination = Number(values.get("destination_location_id"));
     const selectedSpecies = String(values.get("species"));
+    const dataSource = String(values.get("data_source")) as LocationDataSource;
     const species = selectedSpecies === "Other" ? String(values.get("other_species") || "").trim() : selectedSpecies;
 
     if (origin === destination) {
@@ -51,6 +57,7 @@ export function RegisterConsignmentForm() {
     const payload = {
       origin_location_id: origin,
       destination_location_id: destination,
+      data_source: dataSource,
       species,
       animal_count: Number(values.get("animal_count")),
       vehicle_reference: String(values.get("vehicle_reference")),
@@ -83,7 +90,8 @@ export function RegisterConsignmentForm() {
   return (
     <Card className="max-w-4xl p-5 md:p-8">
       <form onSubmit={submit} className="space-y-7">
-        <p className="rounded-lg bg-[#FFF3E0] p-4 text-sm leading-6 text-[#704007]">Synthetic data only. This registers a local demo movement record and does not issue a movement permit or risk advisory.</p>
+        <RecordContext value={recordSource} context={context} onChange={setRecordSource} />
+        <p className="rounded-lg bg-[#FFF3E0] p-4 text-sm leading-6 text-[#704007]">{recordSource === "pilot_entered" ? "Manually entered local operations record. It is not imported from a government system." : "Controlled fictional record for SIH demonstration."} This does not issue a movement permit or risk advisory.</p>
         <fieldset className="grid gap-5 md:grid-cols-2">
           <LocationSelect label="Origin" name="origin_location_id" placeholder="Select origin" locations={locations} selectedLocationId={originLocationId} onLocationChange={setOriginLocationId} />
           <LocationSelect label="Destination" name="destination_location_id" placeholder="Select destination" locations={locations} selectedLocationId={destinationLocationId} onLocationChange={setDestinationLocationId} />
@@ -100,11 +108,13 @@ export function RegisterConsignmentForm() {
         </fieldset>
         <p className="text-sm leading-6 text-slate-600">Vehicle references match existing synthetic vehicles when available; a new reference creates a local synthetic vehicle record.</p>
         {error && <p role="alert" className="rounded-lg bg-[#FDECEC] p-4 text-sm text-risk-red">{error}</p>}
-        <div className="flex justify-end"><Button type="submit" disabled={submitting}>{submitting && <LoaderCircle className="animate-spin" size={17} />}Register consignment</Button></div>
+        <div className="flex justify-end"><Button type="submit" disabled={submitting || !recordSource || locations.length < 2}>{submitting && <LoaderCircle className="animate-spin" size={17} />}Register consignment</Button></div>
       </form>
     </Card>
   );
 }
+
+function RecordContext({ value, context, onChange }: { value: LocationDataSource | ""; context: "demo_seed" | "pilot_entered" | "all"; onChange: (value: LocationDataSource | "") => void }) { const locked = context !== "all"; return <label className="block max-w-md text-sm font-bold text-ink">Record context<select required name="data_source" value={value} disabled={locked} onChange={event => onChange(event.target.value as LocationDataSource | "")} className={`mt-2 ${consignmentControlClass} disabled:cursor-not-allowed disabled:bg-paper`}><option value="" disabled>Select record context</option><option value="demo_seed">Demo record</option><option value="pilot_entered">Pilot-entered record</option></select>{locked && <input type="hidden" name="data_source" value={value} />}<span className="mt-2 block text-xs font-normal text-slate-600">{locked ? "Locked to the active Data Context preference." : "Choose a context before selecting locations."}</span></label>; }
 
 function Field({ label, name, ...props }: React.InputHTMLAttributes<HTMLInputElement> & { label: string; name: string }) {
   return <label className="block text-sm font-bold text-ink">{label}<input className={`mt-2 ${consignmentControlClass}`} name={name} {...props} /></label>;

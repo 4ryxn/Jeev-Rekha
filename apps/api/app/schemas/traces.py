@@ -2,7 +2,7 @@ from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from app.models.core import TraceDirection, TraceEvidenceLevel
+from app.models.core import LocationDataSource, TraceDirection, TraceEvidenceLevel
 from app.schemas.core import LocationRead, OutbreakRead
 
 
@@ -44,6 +44,7 @@ class TraceRunResponse(BaseModel):
     id: int
     outbreak: OutbreakRead
     direction: TraceDirection
+    data_source: LocationDataSource
     window_start: datetime
     window_end: datetime
     review_window_days: int

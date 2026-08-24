@@ -4,16 +4,18 @@ import { CheckCircle2, LoaderCircle } from "lucide-react";
 import Link from "next/link";
 import { FormEvent, useEffect, useState } from "react";
 
-import { apiFetch, type Location, type Outbreak } from "@/lib/api";
+import { apiFetch, type Location, type LocationDataSource, type Outbreak } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { submitRegistration } from "@/lib/registration-submit";
 import { loadLocationReferences } from "@/lib/location-references";
+import { useDataContext } from "@/lib/data-context";
 
 const nowForInput = () => new Date(Date.now() - new Date().getTimezoneOffset() * 60_000).toISOString().slice(0, 16);
 const outbreakControlClass = "h-16 w-full appearance-auto rounded-xl border border-line bg-white px-4 py-0 text-base leading-6 text-ink";
 
 export function RegisterOutbreakForm() {
+  const { context } = useDataContext();
   const [locations, setLocations] = useState<Location[]>([]);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
@@ -23,10 +25,13 @@ export function RegisterOutbreakForm() {
   const [isOtherDisease, setIsOtherDisease] = useState(false);
   const [isOtherSpecies, setIsOtherSpecies] = useState(false);
   const [selectedLocationId, setSelectedLocationId] = useState<number | null>(null);
+  const [recordSource, setRecordSource] = useState<LocationDataSource | "">(context === "all" ? "" : context);
 
   useEffect(() => {
-    loadLocationReferences().then(setLocations).catch((reason: Error) => setError(reason.message)).finally(() => setLoading(false));
-  }, []);
+    if (!recordSource) { setLocations([]); setLoading(false); return; }
+    setLoading(true); setSelectedLocationId(null);
+    loadLocationReferences(recordSource).then(setLocations).catch((reason: Error) => setError(reason.message)).finally(() => setLoading(false));
+  }, [recordSource]);
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -48,6 +53,7 @@ export function RegisterOutbreakForm() {
       species,
       status: String(values.get("status")),
       location_id: Number(values.get("location_id")),
+      data_source: String(values.get("data_source")),
       detected_at: new Date(String(values.get("detected_at"))).toISOString(),
       confirmed_at: values.get("confirmed_at") ? new Date(String(values.get("confirmed_at"))).toISOString() : null,
       suspected_cases: Number(values.get("suspected_cases")),
@@ -69,7 +75,8 @@ export function RegisterOutbreakForm() {
   return (
     <Card className="max-w-4xl p-5 md:p-8">
       <form onSubmit={submit} className="space-y-7">
-        <p className="rounded-lg bg-[#FFF3E0] p-4 text-sm leading-6 text-[#704007]">Synthetic data only. This workflow does not submit a real animal-health notification or issue an official alert.</p>
+        <RecordContext value={recordSource} context={context} onChange={setRecordSource} />
+        <p className="rounded-lg bg-[#FFF3E0] p-4 text-sm leading-6 text-[#704007]">{recordSource === "pilot_entered" ? "Manually entered local operations record. It is not imported from a government system." : "Controlled fictional record for SIH demonstration."} This workflow does not submit a real animal-health notification or issue an official alert.</p>
         <fieldset className="grid gap-5 md:grid-cols-2">
           <SelectField label="Disease name" name="disease_name" placeholder="Select disease" onChange={(event) => setIsOtherDisease(event.target.value === "Other")}>
             <option value="Foot-and-mouth disease">Foot-and-mouth disease</option><option value="Peste des petits ruminants">Peste des petits ruminants</option><option value="Haemorrhagic septicaemia">Haemorrhagic septicaemia</option><option value="Anthrax">Anthrax</option><option value="Brucellosis">Brucellosis</option><option value="Other">Other</option>
@@ -96,11 +103,13 @@ export function RegisterOutbreakForm() {
           <TextArea label="Notes" name="notes" placeholder="Add optional field notes" />
         </fieldset>
         {error && <ErrorMessage message={error} />}
-        <div className="flex justify-end"><Button disabled={submitting} type="submit">{submitting && <LoaderCircle className="animate-spin" size={17} />}Create outbreak record</Button></div>
+        <div className="flex justify-end"><Button disabled={submitting || !recordSource || locations.length === 0} type="submit">{submitting && <LoaderCircle className="animate-spin" size={17} />}Create outbreak record</Button></div>
       </form>
     </Card>
   );
 }
+
+function RecordContext({ value, context, onChange }: { value: LocationDataSource | ""; context: "demo_seed" | "pilot_entered" | "all"; onChange: (value: LocationDataSource | "") => void }) { const locked = context !== "all"; return <label className="block max-w-md text-sm font-bold text-ink">Record context<select required name="data_source" value={value} disabled={locked} onChange={event => onChange(event.target.value as LocationDataSource | "")} className={`mt-2 ${outbreakControlClass} disabled:cursor-not-allowed disabled:bg-paper`}><option value="" disabled>Select record context</option><option value="demo_seed">Demo record</option><option value="pilot_entered">Pilot-entered record</option></select>{locked && <input type="hidden" name="data_source" value={value} />}<span className="mt-2 block text-xs font-normal text-slate-600">{locked ? "Locked to the active Data Context preference." : "Choose a context before selecting locations."}</span></label>; }
 
 function Field({ label, name, ...props }: React.InputHTMLAttributes<HTMLInputElement> & { label: string; name: string }) {
   return <label className="block text-sm font-bold text-ink">{label}<input name={name} className={`mt-2 ${outbreakControlClass}`} {...props} /></label>;
