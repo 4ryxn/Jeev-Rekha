@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 
 import { RouteRiskMap } from "@/components/route-risk-map";
 import { PilotGeographicMap } from "@/components/pilot-geographic-map";
+import { PilotAdvisoryEvidence } from "@/components/pilot-advisory-evidence";
 import { Card } from "@/components/ui/card";
 import { apiFetch, type Advisory, type Location, type Outbreak, type RouteAssessment } from "@/lib/api";
 
@@ -42,5 +43,5 @@ export function SafeCorridorByAdvisory({ id }: { id: number }) {
 
   if (error) return <Card className="p-5">Route assessment unavailable: {error}</Card>;
   if (!advisory) return <Card className="p-5">Loading synthetic movement network and assessment…</Card>;
-  return <SafeCorridor advisory={advisory} />;
+  return <>{advisory.data_source === "pilot_entered" && <PilotAdvisoryEvidence advisory={advisory} />}<SafeCorridor advisory={advisory} /></>;
 }
