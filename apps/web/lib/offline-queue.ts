@@ -1,12 +1,11 @@
 "use client";
 import Dexie, { type Table } from "dexie";
-import { apiFetch } from "@/lib/api";
+import { apiFetch, type Location } from "@/lib/api";
 
 export type OfflineOperationType = "create_consignment" | "create_outbreak";
 export type OfflineStatus = "pending" | "syncing" | "synced" | "needs_review" | "failed";
 export interface OfflineOperation { client_operation_id: string; operation_type: OfflineOperationType; payload: Record<string, unknown>; created_at: string; status: OfflineStatus; last_error?: string; server_entity_id?: number }
-export interface LocationReference { id: number; name: string; type: string; latitude: number; longitude: number; created_at: string }
-class QueueDatabase extends Dexie { operations!: Table<OfflineOperation, string>; locationReferences!: Table<LocationReference, number>; constructor(){ super("jeev-rekha-offline"); this.version(1).stores({ operations:"client_operation_id,status,created_at" }); this.version(2).stores({ operations:"client_operation_id,status,created_at", locationReferences:"id,name" }); } }
+class QueueDatabase extends Dexie { operations!: Table<OfflineOperation, string>; locationReferences!: Table<Location, number>; constructor(){ super("jeev-rekha-offline"); this.version(1).stores({ operations:"client_operation_id,status,created_at" }); this.version(2).stores({ operations:"client_operation_id,status,created_at", locationReferences:"id,name" }); } }
 export const offlineDb = new QueueDatabase();
 const changed = () => typeof window !== "undefined" && window.dispatchEvent(new Event("jeevrekha-sync-change"));
 export async function queueOperation(operation_type: OfflineOperationType, payload: Record<string, unknown>, client_operation_id = crypto.randomUUID()) { const existing=await offlineDb.operations.get(client_operation_id); if(existing)return existing; const item: OfflineOperation={client_operation_id,operation_type,payload,created_at:new Date().toISOString(),status:"pending"}; await offlineDb.operations.add(item); changed(); return item; }

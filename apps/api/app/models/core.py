@@ -2,7 +2,7 @@ from datetime import datetime
 from enum import StrEnum
 
 from geoalchemy2 import Geometry
-from sqlalchemy import CheckConstraint, DateTime, Enum, ForeignKey, Index, Integer, String, Text, func
+from sqlalchemy import Boolean, CheckConstraint, DateTime, Enum, ForeignKey, Index, Integer, String, Text, func, text
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -19,6 +19,11 @@ class LocationType(StrEnum):
     MARKET = "market"
     CHECKPOST = "checkpost"
     VETERINARY_CENTRE = "veterinary_centre"
+
+
+class LocationDataSource(StrEnum):
+    DEMO_SEED = "demo_seed"
+    PILOT_ENTERED = "pilot_entered"
 
 
 class OutbreakStatus(StrEnum):
@@ -69,14 +74,26 @@ class TimestampedModel:
 
 class Location(TimestampedModel, Base):
     __tablename__ = "locations"
-    __table_args__ = (Index("ix_locations_type", "type"), Index("ix_locations_geometry", "geometry", postgresql_using="gist"))
+    __table_args__ = (
+        CheckConstraint("latitude >= -90 AND latitude <= 90", name="ck_locations_valid_latitude"),
+        CheckConstraint("longitude >= -180 AND longitude <= 180", name="ck_locations_valid_longitude"),
+        Index("ix_locations_type", "type"),
+        Index("ix_locations_geometry", "geometry", postgresql_using="gist"),
+        Index("ix_locations_active_source", "is_active", "data_source"),
+        Index("uq_locations_active_name_district_state", "name", "district", "state", unique=True, postgresql_where=text("is_active")),
+    )
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    name: Mapped[str] = mapped_column(String(160), unique=True, nullable=False)
+    name: Mapped[str] = mapped_column(String(160), nullable=False)
     type: Mapped[LocationType] = mapped_column(Enum(LocationType, values_callable=enum_values), nullable=False)
+    district: Mapped[str] = mapped_column(String(120), nullable=False, default="Jeev Rekha District")
+    state: Mapped[str] = mapped_column(String(120), nullable=False, default="Sampoorna State")
     latitude: Mapped[float] = mapped_column(nullable=False)
     longitude: Mapped[float] = mapped_column(nullable=False)
     geometry: Mapped[str] = mapped_column(Geometry(geometry_type="POINT", srid=4326, spatial_index=False), nullable=False)
+    data_source: Mapped[LocationDataSource] = mapped_column(Enum(LocationDataSource, values_callable=enum_values), nullable=False, default=LocationDataSource.DEMO_SEED)
+    is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
 
 
 class Vehicle(TimestampedModel, Base):

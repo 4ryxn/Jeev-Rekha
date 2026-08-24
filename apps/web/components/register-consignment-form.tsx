@@ -22,6 +22,8 @@ export function RegisterConsignmentForm() {
   const [evaluating, setEvaluating] = useState(false);
   const [queued, setQueued] = useState(false);
   const [isOtherSpecies, setIsOtherSpecies] = useState(false);
+  const [originLocationId, setOriginLocationId] = useState<number | null>(null);
+  const [destinationLocationId, setDestinationLocationId] = useState<number | null>(null);
 
   useEffect(() => {
     loadLocationReferences().then(setLocations).catch((reason: Error) => setError(reason.message)).finally(() => setLoading(false));
@@ -83,8 +85,8 @@ export function RegisterConsignmentForm() {
       <form onSubmit={submit} className="space-y-7">
         <p className="rounded-lg bg-[#FFF3E0] p-4 text-sm leading-6 text-[#704007]">Synthetic data only. This registers a local demo movement record and does not issue a movement permit or risk advisory.</p>
         <fieldset className="grid gap-5 md:grid-cols-2">
-          <LocationSelect label="Origin" name="origin_location_id" placeholder="Select origin" locations={locations} />
-          <LocationSelect label="Destination" name="destination_location_id" placeholder="Select destination" locations={locations} />
+          <LocationSelect label="Origin" name="origin_location_id" placeholder="Select origin" locations={locations} selectedLocationId={originLocationId} onLocationChange={setOriginLocationId} />
+          <LocationSelect label="Destination" name="destination_location_id" placeholder="Select destination" locations={locations} selectedLocationId={destinationLocationId} onLocationChange={setDestinationLocationId} />
           <SelectField label="Species" name="species" placeholder="Select species" onChange={(event) => setIsOtherSpecies(event.target.value === "Other")}>
             <option value="Cattle">Cattle</option><option value="Buffalo">Buffalo</option><option value="Goat">Goat</option><option value="Sheep">Sheep</option><option value="Pig">Pig</option><option value="Poultry">Poultry</option><option value="Other">Other</option>
           </SelectField>
@@ -112,6 +114,7 @@ function SelectField({ label, name, placeholder, children, ...props }: React.Sel
   return <label className="block text-sm font-bold text-ink">{label}<select required defaultValue="" className={`mt-2 ${consignmentControlClass}`} name={name} {...props}><option value="" disabled>{placeholder}</option>{children}</select></label>;
 }
 
-function LocationSelect({ label, name, placeholder, locations }: { label: string; name: string; placeholder: string; locations: Location[] }) {
-  return <SelectField label={label} name={name} placeholder={placeholder}>{locations.map((location) => <option key={location.id} value={location.id}>{location.name} · {location.type.replace("_", " ")}</option>)}</SelectField>;
+function LocationSelect({ label, name, placeholder, locations, selectedLocationId, onLocationChange }: { label: string; name: string; placeholder: string; locations: Location[]; selectedLocationId: number | null; onLocationChange: (id: number | null) => void }) {
+  const selected = locations.find((location) => location.id === selectedLocationId);
+  return <div><SelectField label={label} name={name} placeholder={placeholder} onChange={(event) => onLocationChange(Number(event.target.value) || null)}>{locations.map((location) => <option key={location.id} value={location.id}>{location.name} · {location.type.replace("_", " ")}</option>)}</SelectField>{selected?.data_source === "pilot_entered" && <p className="mt-2 text-xs font-bold text-teal">Pilot-entered location</p>}</div>;
 }

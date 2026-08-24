@@ -6,10 +6,10 @@ from sqlalchemy.orm import Session
 from sqlalchemy import select
 
 from app.db.session import get_db
-from app.models.core import LocationType
+from app.models.core import LocationDataSource, LocationType
 from app.repositories.core import OperationsRepository
 from app.repositories.advisories import AdvisoryRepository
-from app.schemas import AdvisoryEvaluateRequest, AdvisoryRead, ConsignmentCreate, ConsignmentRead, LocationRead, OutbreakCreate, OutbreakRead, SyncBatchRequest, SyncOperationResult, TraceConfigurationRead, TraceCreateRequest, TraceRunResponse
+from app.schemas import AdvisoryEvaluateRequest, AdvisoryRead, ConsignmentCreate, ConsignmentRead, LocationCreate, LocationRead, LocationUpdate, OutbreakCreate, OutbreakRead, SyncBatchRequest, SyncOperationResult, TraceConfigurationRead, TraceCreateRequest, TraceRunResponse
 from app.services.advisory import AdvisoryService
 from app.services.operations import OperationsService
 from app.services.routing import RouteService
@@ -26,6 +26,7 @@ from app.schemas import ReviewCasePatch, ReviewCaseRead, ReportIndexRead
 from app.schemas import PublicMovementCheckRequest, PublicMovementCheckResponse
 from app.services.public_movement_check import PublicMovementCheckService
 from app.services.reviews import ReviewService
+from app.services.locations import LocationRegistryService
 
 router = APIRouter(prefix="/api/v1")
 repository = OperationsRepository()
@@ -38,11 +39,32 @@ trace_service = TraceService(trace_repository)
 containment_service=ContainmentService()
 review_service=ReviewService()
 public_movement_check_service=PublicMovementCheckService()
+location_registry_service = LocationRegistryService()
 
 
 @router.get("/locations", response_model=list[LocationRead], tags=["locations"])
-def list_locations(type: LocationType | None = None, db: Session = Depends(get_db)) -> list[object]:
-    return repository.list_locations(db, type)
+def list_locations(
+    type: LocationType | None = None,
+    include_inactive: bool = False,
+    source: LocationDataSource | None = None,
+    db: Session = Depends(get_db),
+) -> list[object]:
+    return repository.list_locations(db, type, include_inactive, source)
+
+
+@router.post("/locations", response_model=LocationRead, status_code=status.HTTP_201_CREATED, tags=["locations"])
+def create_location(payload: LocationCreate, db: Session = Depends(get_db)) -> object:
+    return location_registry_service.create(db, payload)
+
+
+@router.patch("/locations/{location_id}", response_model=LocationRead, tags=["locations"])
+def update_location(location_id: int, payload: LocationUpdate, db: Session = Depends(get_db)) -> object:
+    return location_registry_service.update(db, location_id, payload)
+
+
+@router.post("/locations/{location_id}/archive", response_model=LocationRead, tags=["locations"])
+def archive_location(location_id: int, db: Session = Depends(get_db)) -> object:
+    return location_registry_service.archive(db, location_id)
 
 @router.post("/public/movement-check",response_model=PublicMovementCheckResponse,tags=["public"])
 def public_movement_check(payload:PublicMovementCheckRequest,db:Session=Depends(get_db)):

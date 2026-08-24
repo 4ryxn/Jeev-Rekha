@@ -22,6 +22,7 @@ export function RegisterOutbreakForm() {
   const [queued, setQueued] = useState(false);
   const [isOtherDisease, setIsOtherDisease] = useState(false);
   const [isOtherSpecies, setIsOtherSpecies] = useState(false);
+  const [selectedLocationId, setSelectedLocationId] = useState<number | null>(null);
 
   useEffect(() => {
     loadLocationReferences().then(setLocations).catch((reason: Error) => setError(reason.message)).finally(() => setLoading(false));
@@ -81,9 +82,9 @@ export function RegisterOutbreakForm() {
           <SelectField label="Outbreak status" name="status" placeholder="Select outbreak status">
             <option value="suspected">Suspected</option><option value="confirmed">Confirmed</option><option value="closed">Closed</option>
           </SelectField>
-          <SelectField label="Location" name="location_id" placeholder="Select location">
+          <div><SelectField label="Location" name="location_id" placeholder="Select location" onChange={(event) => setSelectedLocationId(Number(event.target.value) || null)}>
             {locations.map((location) => <option key={location.id} value={location.id}>{location.name} · {location.type.replace("_", " ")}</option>)}
-          </SelectField>
+          </SelectField>{locations.find((location) => location.id === selectedLocationId)?.data_source === "pilot_entered" && <p className="mt-2 text-xs font-bold text-teal">Pilot-entered location</p>}</div>
           <Field label="Detected at" name="detected_at" type="datetime-local" defaultValue={nowForInput()} required />
           <Field label="Confirmed at (optional)" name="confirmed_at" type="datetime-local" />
           <SelectField label="Verification level" name="verification_level" placeholder="Select verification level">

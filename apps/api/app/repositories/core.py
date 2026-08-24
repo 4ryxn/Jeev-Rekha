@@ -2,14 +2,24 @@ from sqlalchemy import Select, select
 from sqlalchemy.orm import Session, selectinload
 
 from app.models import Consignment, Location, MovementEvent, Outbreak, Vehicle
-from app.models.core import LocationType
+from app.models.core import LocationDataSource, LocationType
 
 
 class OperationsRepository:
-    def list_locations(self, db: Session, location_type: LocationType | None = None) -> list[Location]:
+    def list_locations(
+        self,
+        db: Session,
+        location_type: LocationType | None = None,
+        include_inactive: bool = False,
+        source: LocationDataSource | None = None,
+    ) -> list[Location]:
         query: Select[tuple[Location]] = select(Location).order_by(Location.name)
         if location_type:
             query = query.where(Location.type == location_type)
+        if not include_inactive:
+            query = query.where(Location.is_active.is_(True))
+        if source:
+            query = query.where(Location.data_source == source)
         return list(db.scalars(query))
 
     def get_location(self, db: Session, location_id: int) -> Location | None:

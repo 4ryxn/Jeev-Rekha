@@ -9,6 +9,7 @@ from app.db.session import SessionLocal
 from app.models import Advisory, Consignment, Location, MovementEvent, Outbreak, RouteSegment, SurveillanceUpdate, VaccinationEvent, Vehicle
 from app.models.core import (
     LocationType,
+    LocationDataSource,
     MovementEventType,
     OutbreakStatus,
     VaccinationEvidence,
@@ -49,7 +50,17 @@ def seed() -> str:
             ("District Veterinary Centre", LocationType.VETERINARY_CENTRE, 13.041, 77.532),
         ]
         locations = [
-            Location(name=name, type=kind, latitude=latitude, longitude=longitude, geometry=WKTElement(f"POINT({longitude} {latitude})", srid=4326))
+            Location(
+                name=name,
+                type=kind,
+                district="Jeev Rekha District",
+                state="Sampoorna State",
+                latitude=latitude,
+                longitude=longitude,
+                geometry=WKTElement(f"POINT({longitude} {latitude})", srid=4326),
+                data_source=LocationDataSource.DEMO_SEED,
+                is_active=True,
+            )
             for name, kind, latitude, longitude in location_data
         ]
         db.add_all(locations)

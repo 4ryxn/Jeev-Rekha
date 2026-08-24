@@ -1,9 +1,10 @@
 from datetime import datetime
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, computed_field, field_validator, model_validator
 
 from app.models.core import (
     LocationType,
+    LocationDataSource,
     MovementEventType,
     OutbreakStatus,
     VaccinationEvidence,
@@ -22,9 +23,79 @@ class LocationRead(ORMModel):
     id: int
     name: str
     type: LocationType
+    district: str
+    state: str
     latitude: float
     longitude: float
+    data_source: LocationDataSource
+    is_active: bool
     created_at: datetime
+    updated_at: datetime
+
+    @computed_field
+    @property
+    def location_type(self) -> str:
+        return "livestock_market" if self.type == LocationType.MARKET else self.type.value
+
+
+class LocationCreate(BaseModel):
+    name: str = Field(min_length=2, max_length=160)
+    location_type: str
+    district: str = Field(min_length=2, max_length=120)
+    state: str = Field(min_length=2, max_length=120)
+    latitude: float = Field(ge=-90, le=90)
+    longitude: float = Field(ge=-180, le=180)
+
+    @field_validator("name", "district", "state")
+    @classmethod
+    def trim_location_text(cls, value: str) -> str:
+        value = value.strip()
+        if not value:
+            raise ValueError("must not be blank")
+        return value
+
+    @field_validator("location_type")
+    @classmethod
+    def validate_registry_location_type(cls, value: str) -> str:
+        valid = {"village", "livestock_market", "checkpost", "veterinary_centre"}
+        if value not in valid:
+            raise ValueError("location_type must be village, livestock_market, checkpost, or veterinary_centre")
+        return value
+
+
+class LocationUpdate(BaseModel):
+    name: str | None = Field(default=None, min_length=2, max_length=160)
+    location_type: str | None = None
+    district: str | None = Field(default=None, min_length=2, max_length=120)
+    state: str | None = Field(default=None, min_length=2, max_length=120)
+    latitude: float | None = Field(default=None, ge=-90, le=90)
+    longitude: float | None = Field(default=None, ge=-180, le=180)
+
+    @field_validator("name", "district", "state")
+    @classmethod
+    def trim_optional_location_text(cls, value: str | None) -> str | None:
+        if value is None:
+            return value
+        value = value.strip()
+        if not value:
+            raise ValueError("must not be blank")
+        return value
+
+    @field_validator("location_type")
+    @classmethod
+    def validate_optional_registry_location_type(cls, value: str | None) -> str | None:
+        if value is None:
+            return value
+        valid = {"village", "livestock_market", "checkpost", "veterinary_centre"}
+        if value not in valid:
+            raise ValueError("location_type must be village, livestock_market, checkpost, or veterinary_centre")
+        return value
+
+    @model_validator(mode="after")
+    def require_one_change(self) -> "LocationUpdate":
+        if not self.model_dump(exclude_none=True):
+            raise ValueError("at least one location field must be provided")
+        return self
 
 
 class VehicleRead(ORMModel):
