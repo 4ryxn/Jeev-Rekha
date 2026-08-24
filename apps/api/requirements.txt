@@ -4,4 +4,7 @@ SQLAlchemy==2.0.38
 alembic==1.14.1
 GeoAlchemy2==0.16.0
 psycopg[binary]==3.2.4
+# Required when a managed platform supplies SQLAlchemy's conventional
+# postgresql:// URL (which selects the psycopg2 dialect).
+psycopg2-binary==2.9.10
 uvicorn[standard]==0.34.0
