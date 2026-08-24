@@ -1,8 +1,8 @@
 # Jeev Rekha — Local synthetic operations workspace
 
-Jeev Rekha is a livestock outbreak intelligence and movement-advisory project using a local PostGIS-backed synthetic demonstration workspace.
+Jeev Rekha is a livestock outbreak intelligence and movement-advisory project using a PostGIS-backed operations workspace with controlled synthetic demo data and clearly labelled manually entered pilot records.
 
-All stored records are synthetic demonstration data. There is no live INAPH, NADRES, IDSP, or other government API connection. Safe Corridor routing, tracing, offline sync, simulation, reports, real authentication, external integrations, and deployment are intentionally deferred.
+There is no live INAPH, NADRES, IDSP, LGD, or other government API connection. Advisory outputs are not permits, restrictions, or automated veterinary decisions. Production deployment configuration is documented, but this repository does not deploy, push, or create remote resources.
 
 ## Prerequisites
 
@@ -55,6 +55,7 @@ Verify it in another terminal:
 
 ```bash
 curl http://localhost:8000/api/v1/health
+curl http://localhost:8000/api/v1/readiness
 ```
 
 Expected response:
@@ -70,6 +71,34 @@ cd apps/api
 source .venv/bin/activate
 pytest
 ```
+
+Run non-destructive checks against a running local API:
+
+```bash
+cd apps/api
+source .venv/bin/activate
+python -m app.smoke_test
+```
+
+Prepare the local synthetic demo database without deleting records:
+
+```bash
+cd apps/api
+source .venv/bin/activate
+python -m app.demo_reset
+```
+
+For production configuration validation, set production environment variables first and run:
+
+```bash
+cd apps/api
+APP_ENV=production DATABASE_URL='postgresql+psycopg://…' \
+CORS_ORIGINS='https://your-vercel-domain.vercel.app' \
+TRUSTED_HOSTS='your-api.onrender.com' DEMO_SEED_ENABLED=false \
+python -m app.production_check
+```
+
+See [deployment guidance](docs/04-deployment.md) and the [judge-demo runbook](docs/05-judge-demo-runbook.md) before a hosted rehearsal. No deployment is performed by this repository.
 
 ## 4. Start the Next.js frontend
 

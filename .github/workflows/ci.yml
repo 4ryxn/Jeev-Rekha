@@ -1,0 +1,49 @@
+name: Verify
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    services:
+      postgis:
+        image: postgis/postgis:16-3.4
+        env:
+          POSTGRES_DB: jeevrekha
+          POSTGRES_USER: jeevrekha
+          POSTGRES_PASSWORD: jeevrekha
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U jeevrekha -d jeevrekha"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: apps/web/package-lock.json
+      - name: Backend tests
+        working-directory: apps/api
+        env:
+          DATABASE_URL: postgresql+psycopg://jeevrekha:jeevrekha@localhost:5432/jeevrekha
+          APP_ENV: test
+        run: |
+          python -m pip install -r requirements-dev.txt
+          python -m pytest -q
+      - name: Frontend lint and build
+        working-directory: apps/web
+        env:
+          NEXT_PUBLIC_API_BASE_URL: http://localhost:8000/api/v1
+        run: |
+          npm ci
+          npm run lint
+          npm run build

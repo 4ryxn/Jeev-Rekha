@@ -29,9 +29,13 @@ export interface ReviewCase {id:number;source_type:string;source_id:string;categ
 export interface ReportIndex {advisories:{id:number;href:string;title:string;data_source:LocationDataSource}[];traces:{id:number;href:string;title:string;data_source:LocationDataSource}[];containment:{id:number;href:string;title:string;data_source:LocationDataSource}[]}
 export interface PublicMovementCheck {risk_state:RiskState;reasons:string[];evidence_coverage_score:number;information_coverage:string;recommended_action:string;advisory_disclaimer:string;generated_at:string}
 
-const baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000/api/v1";
+const configuredApiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL;
+const baseUrl = configuredApiBaseUrl || (process.env.NODE_ENV === "production" ? undefined : "http://localhost:8000/api/v1");
 
 export async function apiFetch<T>(path: string, options?: RequestInit): Promise<T> {
+  if (!baseUrl) {
+    throw new Error("The API address is not configured. Set NEXT_PUBLIC_API_BASE_URL for this deployment.");
+  }
   const response = await fetch(`${baseUrl}${path}`, { cache: "no-store", ...options, headers: { "Content-Type": "application/json", ...(options?.headers ?? {}) } });
   if (!response.ok) {
     const body = await response.json().catch(() => null);
