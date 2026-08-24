@@ -8,7 +8,7 @@ from app.models.core import RiskState
 class ReviewService:
  def refresh(self,db:Session):
   sources=[]
-  for a in db.scalars(select(Advisory).where(Advisory.risk_state==RiskState.GREY)):
+  for a in db.scalars(select(Advisory).where((Advisory.risk_state==RiskState.GREY)|((Advisory.risk_state==RiskState.RED)&(Advisory.route_state.is_not(None))))):
    sources.append(("advisory",str(a.id),"evidence_gap","high","Evidence coverage requires veterinary review",f"Grey advisory with evidence coverage score {a.evidence_coverage_score}."))
   for receipt in db.scalars(select(SyncReceipt).where(SyncReceipt.status=="needs_review")):
    sources.append(("sync_operation",receipt.client_operation_id,"sync_exception","medium","Offline registration requires review",f"{receipt.operation_type.replace('_',' ')} could not be accepted during sync."))

@@ -230,6 +230,9 @@ class AdvisoryRead(ORMModel):
     evaluated_at: datetime
     rules_version: str
     data_source: LocationDataSource
+    policy_snapshot: dict[str, object] | None = None
+    considered_outbreak_ids: list[int] | None = None
+    route_state: str | None = None
     consignment: ConsignmentRead
 
 

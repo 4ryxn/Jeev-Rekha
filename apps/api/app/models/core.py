@@ -201,6 +201,9 @@ class Advisory(Base):
     recommended_action: Mapped[str] = mapped_column(Text, nullable=False)
     evaluated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     rules_version: Mapped[str] = mapped_column(String(32), nullable=False)
+    policy_snapshot: Mapped[dict[str, object] | None] = mapped_column(JSONB)
+    considered_outbreak_ids: Mapped[list[int] | None] = mapped_column(JSONB)
+    route_state: Mapped[str | None] = mapped_column(String(64))
     consignment: Mapped[Consignment] = relationship(back_populates="advisories")
 
     @property

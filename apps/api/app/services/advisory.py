@@ -2,11 +2,15 @@ from datetime import UTC, datetime, timedelta
 from math import asin, cos, radians, sin, sqrt
 
 from fastapi import HTTPException, status
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.advisory_rules import RULES, AdvisoryRules
 from app.models import Advisory, Consignment, Outbreak, SurveillanceUpdate, VaccinationEvent
 from app.models.core import OutbreakStatus, RiskState, VaccinationEvidence, VerificationLevel
+from app.models.core import LocationDataSource
+from app.models import RouteAssessment
+from app.services.pilot_geospatial import line_intersects_radius, point_in_radius
 from app.repositories.advisories import AdvisoryRepository
 
 
@@ -22,6 +26,8 @@ class AdvisoryService:
         consignment = self.repository.get_consignment(db, consignment_id)
         if not consignment:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Consignment not found")
+        if consignment.data_source == LocationDataSource.PILOT_ENTERED:
+            return self._evaluate_pilot(db, consignment, now)
         all_outbreaks = self.repository.list_relevant_outbreaks(db, now - timedelta(days=self.rules.confirmed_outbreak_window_days))
         confirmed = [outbreak for outbreak in all_outbreaks if outbreak.status == OutbreakStatus.CONFIRMED and outbreak.detected_at >= now - timedelta(days=self.rules.confirmed_outbreak_window_days) and self._is_relevant(consignment, outbreak)]
         suspected = [outbreak for outbreak in all_outbreaks if outbreak.status == OutbreakStatus.SUSPECTED and outbreak.detected_at >= now - timedelta(days=self.rules.suspected_outbreak_window_days) and self._is_relevant(consignment, outbreak)]
@@ -37,6 +43,35 @@ class AdvisoryService:
             recommended_action=action,
             rules_version=self.rules.version,
         ))
+
+    def _evaluate_pilot(self, db: Session, consignment: Consignment, now: datetime) -> Advisory:
+        route = db.scalar(select(RouteAssessment).where(RouteAssessment.consignment_id == consignment.id).order_by(RouteAssessment.assessed_at.desc()))
+        active = list(db.scalars(select(Outbreak).where(Outbreak.data_source == LocationDataSource.PILOT_ENTERED, Outbreak.status.in_([OutbreakStatus.CONFIRMED, OutbreakStatus.SUSPECTED]))) )
+        factors=[]; reasons=[]; state=RiskState.GREEN
+        geometry = route.route_geometry if route else None
+        route_state = "road_route_available" if geometry else "road_route_unavailable"
+        factors.append({"key":"road_route","label":"Road route geometry","score":25 if geometry else 0,"max_score":25,"freshness_date":None,"explanation":"Persisted road route is available." if geometry else "Road route unavailable; no navigation recommendation is shown."})
+        factors.append({"key":"endpoint_coordinates","label":"Endpoint coordinates","score":25,"max_score":25,"freshness_date":None,"explanation":"Both pilot endpoints have persisted coordinates."})
+        factors.append({"key":"vaccination","label":"Vaccination evidence","score":25 if consignment.vaccination_evidence==VaccinationEvidence.VERIFIED else 0,"max_score":25,"freshness_date":None,"explanation":f"Vaccination evidence is {consignment.vaccination_evidence.value}."})
+        missing_radius=[o for o in active if not o.review_radius_km]
+        factors.append({"key":"review_areas","label":"Authorised review areas","score":25 if not missing_radius else 0,"max_score":25,"freshness_date":None,"explanation":"Active pilot outbreaks have review radii." if not missing_radius else "An active pilot outbreak has no authorised review radius."})
+        coverage=sum(int(x["score"]) for x in factors)
+        if not geometry: state=RiskState.GREY; reasons.append({"code":"route_unavailable","text":"Road route unavailable; no navigation recommendation is shown."})
+        elif consignment.vaccination_evidence==VaccinationEvidence.UNKNOWN: state=RiskState.GREY; reasons.append({"code":"vaccination_unknown","text":"Vaccination evidence is unknown, so the required evidence is insufficient."})
+        elif missing_radius: state=RiskState.GREY; reasons.append({"code":"review_radius_missing","text":"An active pilot outbreak lacks an authorised review radius."})
+        else:
+            endpoints=[[consignment.origin_location.longitude,consignment.origin_location.latitude],[consignment.destination_location.longitude,consignment.destination_location.latitude]]
+            red=[]; amber=[]
+            for outbreak in active:
+                centre=[outbreak.location.longitude,outbreak.location.latitude]; hit=line_intersects_radius(geometry,centre,outbreak.review_radius_km) or any(point_in_radius(p,centre,outbreak.review_radius_km) for p in endpoints)
+                if hit:(red if outbreak.status==OutbreakStatus.CONFIRMED else amber).append(outbreak)
+            if red: state=RiskState.RED; reasons.append({"code":"confirmed_review_area","text":"The assessed road route or an endpoint intersects a confirmed pilot outbreak review area; veterinary review is required."})
+            elif amber: state=RiskState.AMBER; reasons.append({"code":"suspected_review_area","text":"The assessed road route or an endpoint intersects a suspected pilot outbreak review area; precautionary review is advised."})
+            elif consignment.vaccination_evidence != VaccinationEvidence.VERIFIED: state=RiskState.AMBER; reasons.append({"code":"vaccination_unverified","text":"Vaccination evidence is not verified; precautionary veterinary review is advised."})
+            else: reasons.append({"code":"no_configured_intersection","text":"No active configured pilot review area intersects the assessed road route or endpoints."})
+        action={RiskState.RED:"Seek authorised veterinary review before movement.",RiskState.AMBER:"Complete precautionary veterinary review before movement.",RiskState.GREY:"Obtain missing route or evidence information before relying on this advisory.",RiskState.GREEN:"Retain this advisory and seek veterinary guidance if local conditions change."}[state]
+        snapshot={"engine":"pilot-radius-rules-v1","grey_priority":["route geometry","unknown vaccination","missing review radius"],"active_outbreak_ids":[o.id for o in active],"route_provider":route.route_provider if route else None}
+        return self.repository.add_advisory(db,Advisory(consignment_id=consignment.id,risk_state=state,evidence_coverage_score=coverage,reasons=reasons,evidence_factors=factors,recommended_action=action,rules_version="pilot-radius-rules-v1",policy_snapshot=snapshot,considered_outbreak_ids=[o.id for o in active],route_state=route_state))
 
     def _determine_state(self, consignment: Consignment, confirmed: list[Outbreak], suspected: list[Outbreak], coverage: int) -> tuple[RiskState, list[dict[str, str]], str]:
         if confirmed:
