@@ -14,6 +14,8 @@ class OperationsService:
     def create_outbreak(self, db: Session, payload: OutbreakCreate) -> Outbreak:
         location = self.repository.get_location(db, payload.location_id)
         self._validate_location_context(location, payload.data_source, "Outbreak")
+        if payload.review_radius_km is not None and payload.data_source != LocationDataSource.PILOT_ENTERED:
+            raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Review radius is available only for pilot-entered outbreaks.")
         return self.repository.add_outbreak(db, Outbreak(**payload.model_dump()))
 
     def create_consignment(self, db: Session, payload: ConsignmentCreate) -> Consignment:

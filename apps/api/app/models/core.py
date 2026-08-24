@@ -112,6 +112,7 @@ class Outbreak(TimestampedModel, Base):
     status: Mapped[OutbreakStatus] = mapped_column(Enum(OutbreakStatus, values_callable=enum_values), nullable=False)
     location_id: Mapped[int] = mapped_column(ForeignKey("locations.id"), nullable=False)
     data_source: Mapped[LocationDataSource] = mapped_column(Enum(LocationDataSource, values_callable=enum_values), nullable=False, default=LocationDataSource.DEMO_SEED)
+    review_radius_km: Mapped[float | None] = mapped_column()
     detected_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     confirmed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     suspected_cases: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
@@ -233,6 +234,9 @@ class RouteAssessment(Base):
     safer_minutes: Mapped[int | None] = mapped_column()
     risk_reduction: Mapped[str] = mapped_column(String(32), nullable=False)
     route_reasons: Mapped[list[str]] = mapped_column(JSONB, nullable=False)
+    route_provider: Mapped[str | None] = mapped_column(String(120))
+    route_geometry: Mapped[list[list[float]] | None] = mapped_column(JSONB)
+    route_fallback_reason: Mapped[str | None] = mapped_column(Text)
     assessed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     consignment: Mapped[Consignment] = relationship()
 

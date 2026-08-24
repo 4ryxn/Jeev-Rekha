@@ -12,6 +12,7 @@ import { type Advisory, type Location, type Outbreak, type RouteAssessment, apiF
 import { DataContextLabel } from "@/components/data-context-control";
 import { sourcePath, useDataContext } from "@/lib/data-context";
 import { DataSourceBadge } from "@/components/data-source-badge";
+import { PilotGeographicMap } from "@/components/pilot-geographic-map";
 
 export function MapAdvisoriesContent() {
   const { context } = useDataContext();
@@ -49,7 +50,7 @@ export function MapAdvisoriesContent() {
     setRouteLoading(true);
     setAssessment(null);
     apiFetch<RouteAssessment[]>(`/consignments/${selected.consignment_id}/route-assessments`)
-      .then((assessments) => { if (active) setAssessment(assessments[0] ?? null); })
+      .then(async (assessments) => { const item = assessments[0] ?? (selected.data_source === "pilot_entered" ? await apiFetch<RouteAssessment>("/routes/assess", { method: "POST", body: JSON.stringify({ consignment_id: selected.consignment_id }) }) : null); if (active) setAssessment(item); })
       .catch(() => { if (active) setAssessment(null); })
       .finally(() => { if (active) setRouteLoading(false); });
     return () => { active = false; };
@@ -66,10 +67,10 @@ export function MapAdvisoriesContent() {
     <section className="rounded-xl bg-ink p-6 text-white md:p-7"><p className="text-xs font-bold uppercase tracking-[0.15em] text-lime">Synthetic operations map</p><div className="mt-3 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between"><div><h2 className="font-display text-3xl font-semibold tracking-tight">Outbreak context and movement advisories</h2><p className="mt-2 max-w-2xl text-sm leading-6 text-white/75">Fictional persisted data only. No live INAPH, NADRES, IDSP, LGD, or government integration is connected. Results require authorised veterinary review.</p></div><div className="flex gap-3"><MapMetric value={counts.confirmed} label="Confirmed zones" /><MapMetric value={counts.suspected} label="Suspected zones" /></div></div></section>
 
     <Card className="p-5 md:p-6">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between"><div><p className="text-xs font-bold uppercase tracking-[0.14em] text-teal">Synthetic movement network</p><h2 className="mt-2 font-display text-2xl font-semibold">Outbreak context and assessed movement network</h2></div>{selectedAdvisory ? <Link href={`/advisories/${selectedAdvisory.id}`} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-[10px] bg-teal px-4 text-sm font-bold text-white hover:bg-[#0b625c]">View Safe Corridor <ArrowUpRight size={16} /></Link> : null}</div>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between"><div><p className="text-xs font-bold uppercase tracking-[0.14em] text-teal">{context === "pilot_entered" ? "Pilot Geographic View" : context === "all" ? "Separated data views" : "Synthetic movement network"}</p><h2 className="mt-2 font-display text-2xl font-semibold">{context === "pilot_entered" ? "Pilot geographic locations and routes" : "Outbreak context and assessed movement network"}</h2></div>{selectedAdvisory ? <Link href={`/advisories/${selectedAdvisory.id}`} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-[10px] bg-teal px-4 text-sm font-bold text-white hover:bg-[#0b625c]">View Safe Corridor <ArrowUpRight size={16} /></Link> : null}</div>
       {selectedAdvisory && <div className="mt-5 flex flex-col gap-3 rounded-xl border border-line bg-paper p-4 sm:flex-row sm:items-center sm:justify-between"><div className="flex items-start gap-3"><MapPinned className="mt-0.5 shrink-0 text-teal" size={19} aria-hidden="true" /><div><p className="text-sm font-bold text-ink">Displaying advisory route: {selectedAdvisory.consignment.origin_location.name} → {selectedAdvisory.consignment.destination_location.name}</p><p className="mt-1 text-sm text-slate-600">Latest route assessment for this persisted synthetic consignment.</p></div></div><StatusBadge state={selectedAdvisory.risk_state} label={`${selectedAdvisory.risk_state.toUpperCase()} — veterinary review required`} /></div>}
       <p className="mt-4 text-sm leading-6 text-slate-600">This network shows recorded synthetic location relationships, not real road navigation.</p>
-      <div className="mt-5">{locations.length ? <RouteRiskMap assessment={assessment ?? undefined} locations={locations} outbreaks={outbreaks} routeOrigin={selectedAdvisory?.consignment.origin_location} routeDestination={selectedAdvisory?.consignment.destination_location} /> : <EmptyState title="No map locations available" description="The local synthetic location dataset has not been seeded." />}</div>
+      <div className="mt-5">{context === "all" ? <EmptyState title="Choose a data source view" description="Select Demo data or Pilot records in the Data Context control before displaying a map. Demo and pilot geography are intentionally kept separate." /> : !locations.length ? <EmptyState title="No map locations available" description="No active locations are available in this data context." /> : context === "pilot_entered" ? <PilotGeographicMap locations={locations} outbreaks={outbreaks} assessment={assessment} /> : <RouteRiskMap assessment={assessment ?? undefined} locations={locations} outbreaks={outbreaks} routeOrigin={selectedAdvisory?.consignment.origin_location} routeDestination={selectedAdvisory?.consignment.destination_location} />}</div>
       {routeLoading && <p className="mt-3 text-sm font-semibold text-slate-600">Loading the selected assessed route…</p>}
       {!routeLoading && selectedAdvisory && !assessment && <p className="mt-3 text-sm font-semibold text-slate-600">No persisted route assessment is available for the selected advisory.</p>}
       {!selectedAdvisory && <p className="mt-3 text-sm font-semibold text-slate-600">Select a recent advisory to display its persisted assessed movement route.</p>}

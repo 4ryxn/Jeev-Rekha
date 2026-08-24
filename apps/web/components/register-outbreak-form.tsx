@@ -54,6 +54,7 @@ export function RegisterOutbreakForm() {
       status: String(values.get("status")),
       location_id: Number(values.get("location_id")),
       data_source: String(values.get("data_source")),
+      review_radius_km: values.get("review_radius_km") ? Number(values.get("review_radius_km")) : null,
       detected_at: new Date(String(values.get("detected_at"))).toISOString(),
       confirmed_at: values.get("confirmed_at") ? new Date(String(values.get("confirmed_at"))).toISOString() : null,
       suspected_cases: Number(values.get("suspected_cases")),
@@ -92,6 +93,7 @@ export function RegisterOutbreakForm() {
           <div><SelectField label="Location" name="location_id" placeholder="Select location" onChange={(event) => setSelectedLocationId(Number(event.target.value) || null)}>
             {locations.map((location) => <option key={location.id} value={location.id}>{location.name} · {location.type.replace("_", " ")}</option>)}
           </SelectField>{locations.find((location) => location.id === selectedLocationId)?.data_source === "pilot_entered" && <p className="mt-2 text-xs font-bold text-teal">Pilot-entered location</p>}</div>
+          {recordSource === "pilot_entered" && <Field label="Review radius — requires authorised veterinary validation" name="review_radius_km" type="number" min="0.1" step="0.1" placeholder="Optional kilometres" />}
           <Field label="Detected at" name="detected_at" type="datetime-local" defaultValue={nowForInput()} required />
           <Field label="Confirmed at (optional)" name="confirmed_at" type="datetime-local" />
           <SelectField label="Verification level" name="verification_level" placeholder="Select verification level">

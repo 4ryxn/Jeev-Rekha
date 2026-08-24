@@ -10,6 +10,7 @@ class Settings(BaseSettings):
     app_env: str = "development"
     cors_origins: str = "http://localhost:3000,http://127.0.0.1:3000"
     database_url: str = "postgresql+psycopg://jeevrekha:jeevrekha@localhost:5432/jeevrekha"
+    routing_provider_base_url: str = "https://router.project-osrm.org"
 
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 

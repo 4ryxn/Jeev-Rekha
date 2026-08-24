@@ -27,6 +27,7 @@ from app.schemas import PublicMovementCheckRequest, PublicMovementCheckResponse
 from app.services.public_movement_check import PublicMovementCheckService
 from app.services.reviews import ReviewService
 from app.services.locations import LocationRegistryService
+from app.core.config import get_settings
 
 router = APIRouter(prefix="/api/v1")
 repository = OperationsRepository()
@@ -50,6 +51,11 @@ def list_locations(
     db: Session = Depends(get_db),
 ) -> list[object]:
     return repository.list_locations(db, type, include_inactive, source)
+
+@router.get("/routing/status", tags=["routing"])
+def routing_status() -> dict[str, object]:
+    configured = bool(get_settings().routing_provider_base_url)
+    return {"configured": configured, "provider": "OSRM-compatible" if configured else None}
 
 
 @router.post("/locations", response_model=LocationRead, status_code=status.HTTP_201_CREATED, tags=["locations"])

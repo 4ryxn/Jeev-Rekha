@@ -110,6 +110,7 @@ class OutbreakCreate(BaseModel):
     status: OutbreakStatus
     location_id: int = Field(gt=0)
     data_source: LocationDataSource = LocationDataSource.DEMO_SEED
+    review_radius_km: float | None = Field(default=None, gt=0)
     detected_at: datetime
     confirmed_at: datetime | None = None
     suspected_cases: int = Field(default=0, ge=0)
@@ -134,6 +135,7 @@ class OutbreakRead(ORMModel):
     status: OutbreakStatus
     location_id: int
     data_source: LocationDataSource
+    review_radius_km: float | None
     detected_at: datetime
     confirmed_at: datetime | None
     suspected_cases: int
