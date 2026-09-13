@@ -16,7 +16,7 @@ const copy = {
     origin: "Origin", destination: "Destination", species: "Species", specifySpecies: "Specify species",
     selectOrigin: "Select origin", selectDestination: "Select destination", enterAnimalCount: "Enter animal count", enterVehicleReference: "Enter vehicle reference", selectVaccinationEvidence: "Select vaccination evidence",
     selectSpecies: "Select species", cattle: "Cattle", buffalo: "Buffalo", goat: "Goat", sheep: "Sheep", pig: "Pig", poultry: "Poultry", other: "Other",
-    count: "Approximate animal count", vehicle: "Vehicle reference (optional)", vaccination: "Vaccination evidence (optional)",
+    count: "Approximate animal count", vehicle: "Vehicle reference", vaccination: "Vaccination evidence (optional)",
     check: "Check movement advisory", workspace: "Operations workspace", print: "Print advisory slip", demo: "Synthetic demonstration · Pre-travel advisory", slip: "Jeev Rekha — Pre-Travel Advisory Slip · Synthetic demonstration", animals: "animals", verified: "Verified", declared: "Declared", unknown: "Unknown",
     meaning: "What this means", action: "What to do now", coverage: "Information coverage",
     offline: "A current movement advisory needs connectivity. Please use a connected veterinary centre.",
@@ -31,7 +31,7 @@ const copy = {
     origin: "प्रस्थान स्थान", destination: "गंतव्य", species: "प्रजाति", specifySpecies: "प्रजाति लिखें",
     selectOrigin: "प्रस्थान स्थान चुनें", selectDestination: "गंतव्य चुनें", enterAnimalCount: "पशु संख्या दर्ज करें", enterVehicleReference: "वाहन संदर्भ दर्ज करें", selectVaccinationEvidence: "टीकाकरण प्रमाण चुनें",
     selectSpecies: "प्रजाति चुनें", cattle: "गाय/बैल", buffalo: "भैंस", goat: "बकरी", sheep: "भेड़", pig: "सूअर", poultry: "कुक्कुट", other: "अन्य",
-    count: "अनुमानित पशु संख्या", vehicle: "वाहन संदर्भ (वैकल्पिक)", vaccination: "टीकाकरण प्रमाण (वैकल्पिक)",
+    count: "अनुमानित पशु संख्या", vehicle: "वाहन संदर्भ", vaccination: "टीकाकरण प्रमाण (वैकल्पिक)",
     check: "आवागमन सलाह जाँचें", workspace: "संचालन कार्यक्षेत्र", print: "सलाह पर्ची प्रिंट करें", demo: "कृत्रिम प्रदर्शन · यात्रा-पूर्व सलाह", slip: "जीव रेखा — यात्रा-पूर्व सलाह पर्ची · कृत्रिम प्रदर्शन", animals: "पशु", verified: "सत्यापित", declared: "घोषित", unknown: "अज्ञात",
     meaning: "इसका क्या अर्थ है", action: "अब क्या करें", coverage: "जानकारी कवरेज",
     offline: "वर्तमान आवागमन सलाह के लिए कनेक्टिविटी आवश्यक है। कृपया जुड़े हुए पशु चिकित्सा केंद्र का उपयोग करें।",
@@ -79,10 +79,14 @@ function PublicMovementCheckContent() {
     const destination = locations.find((item) => item.id === Number(data.get("destination")));
     setLoading(true); setError("");
     try {
+      const vehicleReference = String(data.get("vehicle") || "").trim();
+      if (!vehicleReference) {
+        throw new Error(t.required);
+      }
       const payload = {
         origin_location_id: Number(data.get("origin")), destination_location_id: Number(data.get("destination")),
         species, approximate_animal_count: Number(data.get("count")),
-        vehicle_reference: String(data.get("vehicle") || "") || null, vaccination_evidence: String(data.get("vaccination") || "") || null,
+        vehicle_reference: vehicleReference, vaccination_evidence: String(data.get("vaccination") || "") || null,
       };
       setResult(await apiFetch<PublicMovementCheck>("/public/movement-check", { method: "POST", body: JSON.stringify(payload) }));
       setDetails({ origin: origin?.name ?? "", destination: destination?.name ?? "", species: payload.species, count: String(payload.approximate_animal_count) });
@@ -114,7 +118,7 @@ function PublicMovementCheckContent() {
             </Field>
             {isOtherSpecies && <Field label={t.specifySpecies}><input required name="other_species" /></Field>}
             <Field label={t.count}><input required name="count" type="number" min="1" placeholder={t.enterAnimalCount} /></Field>
-            <Field label={t.vehicle}><input name="vehicle" placeholder={t.enterVehicleReference} /></Field>
+            <Field label={t.vehicle}><input required name="vehicle" placeholder={t.enterVehicleReference} /></Field>
             <Field label={t.vaccination}><select name="vaccination" defaultValue=""><option value="" disabled>{t.selectVaccinationEvidence}</option><option value="verified">{t.verified}</option><option value="declared">{t.declared}</option><option value="unknown">{t.unknown}</option></select></Field>
           </div>
           {error && <p role="alert" className="mt-5 rounded-lg bg-[#FDECEC] p-4 text-sm font-semibold text-risk-red">{error}</p>}

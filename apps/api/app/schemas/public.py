@@ -7,7 +7,7 @@ class PublicMovementCheckRequest(BaseModel):
  destination_location_id:int=Field(gt=0)
  species:str=Field(min_length=2,max_length=80)
  approximate_animal_count:int=Field(gt=0,le=100000)
- vehicle_reference:str|None=Field(default=None,max_length=64)
+ vehicle_reference:str=Field(min_length=3,max_length=64)
  vaccination_evidence:VaccinationEvidence|None=None
  @model_validator(mode="after")
  def distinct_locations(self):

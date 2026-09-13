@@ -9,6 +9,12 @@ client=TestClient(app)
 def locations(): seed();return {x["name"]:x["id"] for x in client.get("/api/v1/locations").json()}
 def check(origin,destination,vaccination="verified",vehicle="PUBLIC-01"):
  return client.post("/api/v1/public/movement-check",json={"origin_location_id":origin,"destination_location_id":destination,"species":"Cattle","approximate_animal_count":8,"vehicle_reference":vehicle,"vaccination_evidence":vaccination})
+def test_public_check_requires_vehicle_reference():
+ ids=locations()
+ response=client.post("/api/v1/public/movement-check",json={"origin_location_id":ids["Asha Nagar"],"destination_location_id":ids["Kaveri Cattle Market"],"species":"Cattle","approximate_animal_count":8,"vaccination_evidence":"verified"})
+ assert response.status_code==422
+ assert "vehicle_reference" in response.text
+
 def test_public_check_is_read_only_and_has_no_internal_fields():
  ids=locations()
  with SessionLocal() as db: before=[db.scalar(select(func.count(table.id))) for table in [Consignment,Outbreak,Advisory,RouteAssessment,TraceRun]]
