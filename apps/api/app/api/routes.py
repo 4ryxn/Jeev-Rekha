@@ -267,7 +267,7 @@ def list_all_containment(source: LocationDataSource | None = None, db: Session =
  return [item for item in items if source is None or item.outbreak.data_source == source]
 
 def serialize_review(item:ReviewCase, db: Session):
- return {**{key:getattr(item,key) for key in ("id","source_type","source_id","category","priority","title","summary","status","resolution_note","created_at","acknowledged_at","resolved_at")},**review_service.source_meta(item, db)}
+ return {**{key:getattr(item,key) for key in ("id","source_type","source_id","category","case_type","sample_status","priority","title","summary","status","resolution_note","created_at","acknowledged_at","resolved_at")},**review_service.source_meta(item, db)}
 @router.get("/review-cases",response_model=list[ReviewCaseRead],tags=["review-cases"])
 def list_review_cases(status_filter:str|None=Query(None,alias="status"),category:str|None=None,source: LocationDataSource | None = None,db:Session=Depends(get_db)):
  return [serialize_review(item, db) for item in review_service.list(db,status_filter,category,source)]

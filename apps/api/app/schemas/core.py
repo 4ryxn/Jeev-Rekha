@@ -6,6 +6,7 @@ from app.models.core import (
     LocationType,
     LocationDataSource,
     MovementEventType,
+    OutbreakSource,
     OutbreakStatus,
     VaccinationEvidence,
     VerificationLevel,
@@ -108,6 +109,7 @@ class OutbreakCreate(BaseModel):
     disease_name: str = Field(min_length=2, max_length=120)
     species: str = Field(min_length=2, max_length=80)
     status: OutbreakStatus
+    source: OutbreakSource = OutbreakSource.VET_OBSERVED
     location_id: int = Field(gt=0)
     data_source: LocationDataSource = LocationDataSource.DEMO_SEED
     review_radius_km: float | None = Field(default=None, gt=0)
@@ -133,6 +135,7 @@ class OutbreakRead(ORMModel):
     disease_name: str
     species: str
     status: OutbreakStatus
+    source: OutbreakSource
     location_id: int
     data_source: LocationDataSource
     review_radius_km: float | None

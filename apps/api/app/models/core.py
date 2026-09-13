@@ -28,8 +28,29 @@ class LocationDataSource(StrEnum):
 
 class OutbreakStatus(StrEnum):
     SUSPECTED = "suspected"
+    UNDER_INVESTIGATION = "under_investigation"
     CONFIRMED = "confirmed"
     CLOSED = "closed"
+
+
+class OutbreakSource(StrEnum):
+    LAB_CONFIRMED = "lab_confirmed"
+    VET_OBSERVED = "vet_observed"
+    FARMER_REPORTED = "farmer_reported"
+
+
+class ReviewCaseType(StrEnum):
+    EVIDENCE_GAP = "evidence_gap"
+    SYNC_EXCEPTION = "sync_exception"
+    TRACE_CONTACT = "trace_contact"
+    LAB_REFERRAL = "lab_referral"
+
+
+class SampleStatus(StrEnum):
+    NONE = "none"
+    COLLECTED = "collected"
+    SENT_TO_LAB = "sent_to_lab"
+    RESULT_RECEIVED = "result_received"
 
 
 class VerificationLevel(StrEnum):
@@ -110,6 +131,12 @@ class Outbreak(TimestampedModel, Base):
     disease_name: Mapped[str] = mapped_column(String(120), nullable=False)
     species: Mapped[str] = mapped_column(String(80), nullable=False)
     status: Mapped[OutbreakStatus] = mapped_column(Enum(OutbreakStatus, values_callable=enum_values), nullable=False)
+    source: Mapped[OutbreakSource] = mapped_column(
+        Enum(OutbreakSource, values_callable=enum_values),
+        nullable=False,
+        default=OutbreakSource.VET_OBSERVED,
+        server_default=OutbreakSource.VET_OBSERVED.value,
+    )
     location_id: Mapped[int] = mapped_column(ForeignKey("locations.id"), nullable=False)
     data_source: Mapped[LocationDataSource] = mapped_column(Enum(LocationDataSource, values_callable=enum_values), nullable=False, default=LocationDataSource.DEMO_SEED)
     review_radius_km: Mapped[float | None] = mapped_column()
@@ -333,6 +360,18 @@ class ReviewCase(TimestampedModel, Base):
     source_type: Mapped[str]=mapped_column(String(32),nullable=False)
     source_id: Mapped[str]=mapped_column(String(64),nullable=False)
     category: Mapped[str]=mapped_column(String(32),nullable=False)
+    case_type: Mapped[ReviewCaseType] = mapped_column(
+        Enum(ReviewCaseType, values_callable=enum_values),
+        nullable=False,
+        default=ReviewCaseType.EVIDENCE_GAP,
+        server_default=ReviewCaseType.EVIDENCE_GAP.value,
+    )
+    sample_status: Mapped[SampleStatus] = mapped_column(
+        Enum(SampleStatus, values_callable=enum_values),
+        nullable=False,
+        default=SampleStatus.NONE,
+        server_default=SampleStatus.NONE.value,
+    )
     priority: Mapped[str]=mapped_column(String(16),nullable=False)
     title: Mapped[str]=mapped_column(String(200),nullable=False)
     summary: Mapped[str]=mapped_column(Text,nullable=False)

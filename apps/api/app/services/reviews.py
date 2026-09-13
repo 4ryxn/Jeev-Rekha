@@ -16,7 +16,7 @@ class ReviewService:
    sources.append(("trace_finding",str(finding.id),"trace_contact","medium","Trace contact requires veterinary review",finding.explanation))
   for source_type,source_id,category,priority,title,summary in sources:
    if not db.scalar(select(ReviewCase.id).where(ReviewCase.source_type==source_type,ReviewCase.source_id==source_id,ReviewCase.category==category)):
-    db.add(ReviewCase(source_type=source_type,source_id=source_id,category=category,priority=priority,title=title,summary=summary))
+    db.add(ReviewCase(source_type=source_type,source_id=source_id,category=category,case_type=category,priority=priority,title=title,summary=summary))
   db.commit()
  def list(self,db,status=None,category=None,source:LocationDataSource|None=None):
   self.refresh(db); q=select(ReviewCase)
