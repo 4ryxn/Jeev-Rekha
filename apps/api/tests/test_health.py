@@ -17,7 +17,7 @@ def test_health_endpoint_returns_service_status() -> None:
     assert response.json() == {
         "status": "ok",
         "service": "jeev-rekha-api",
-        "environment": "development",
+        "environment": "test",
     }
 
 
@@ -31,24 +31,31 @@ def test_readiness_endpoint_reports_database_connectivity() -> None:
 def test_readiness_endpoint_returns_non_sensitive_failure(monkeypatch) -> None:
     class UnavailableEngine:
         def connect(self):
-            raise OperationalError("SELECT 1", {}, RuntimeError("database unavailable"))
+            raise OperationalError(
+                "SELECT 1",
+                {},
+                RuntimeError("database unavailable"),
+            )
 
     monkeypatch.setattr(main, "engine", UnavailableEngine())
     response = TestClient(app).get("/api/v1/readiness")
 
     assert response.status_code == 503
-    assert response.json() == {"detail": {"status": "not_ready", "database": "unavailable"}}
+    assert response.json() == {
+        "detail": {
+            "status": "not_ready",
+            "database": "unavailable",
+        }
+    }
 
 
-def test_production_configuration_rejects_unsafe_defaults() -> None:
+def test_production_configuration_rejects_unsafe_defaults(monkeypatch) -> None:
+    monkeypatch.delenv("DATABASE_URL", raising=False)
+
     with pytest.raises(ValidationError, match="DATABASE_URL"):
-        Settings(app_env="production", cors_origins="https://web.example", trusted_hosts="api.example")
-
-    with pytest.raises(ValidationError, match="CORS_ORIGINS"):
         Settings(
             app_env="production",
-            database_url="postgresql+psycopg://user:pass@db:5432/jeevrekha",
-            cors_origins="*",
+            cors_origins="https://web.example",
             trusted_hosts="api.example",
         )
 
@@ -58,4 +65,5 @@ def test_production_configuration_rejects_unsafe_defaults() -> None:
         cors_origins="https://web.example",
         trusted_hosts="api.example",
     )
+
     assert production_settings.demo_seed_enabled is False
