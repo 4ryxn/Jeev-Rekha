@@ -1,3 +1,5 @@
+from datetime import UTC, datetime, timedelta
+
 from fastapi.testclient import TestClient
 import httpx
 
@@ -14,12 +16,14 @@ def test_outbreak_trends_aggregate_seeded_data_in_the_requested_context() -> Non
     response = client.get("/api/v1/outbreaks/trends?source=demo_seed")
     assert response.status_code == 200, response.text
     points = response.json()
-    assert sum(point["outbreak_count"] for point in points) == 3
-    assert {point["disease_name"] for point in points} == {
-        "Foot-and-mouth disease",
-        "Peste des petits ruminants",
-        "Haemorrhagic septicaemia",
+    now = datetime.now(UTC)
+    expected = {
+        ((now - timedelta(days=3)).strftime("%Y-%m"), "Foot-and-mouth disease"): 1,
+        ((now - timedelta(days=1)).strftime("%Y-%m"), "Peste des petits ruminants"): 1,
+        ((now - timedelta(days=28)).strftime("%Y-%m"), "Haemorrhagic septicaemia"): 1,
     }
+    actual = {(point["month"][:7], point["disease_name"]): point["outbreak_count"] for point in points}
+    assert actual == expected
     assert client.get("/api/v1/outbreaks/trends?source=pilot_entered").json() == []
 
 
