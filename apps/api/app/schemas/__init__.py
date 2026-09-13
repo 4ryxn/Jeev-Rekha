@@ -7,6 +7,8 @@ from app.schemas.core import (
     MovementEventRead,
     OutbreakCreate,
     OutbreakRead,
+    OutbreakTrendPoint,
+    WeatherContextRead,
     VehicleRead,
     AdvisoryEvaluateRequest,
     AdvisoryRead,
@@ -20,4 +22,4 @@ from app.schemas.reviews import ReviewCasePatch, ReviewCaseRead, SampleStatusUpd
 from app.schemas.reports import ReportIndexRead, ReportSourceRead
 from app.schemas.public import PublicMovementCheckRequest, PublicMovementCheckResponse
 
-__all__ = ["LocationRead", "LocationCreate", "LocationUpdate", "VehicleRead", "OutbreakCreate", "OutbreakRead", "ConsignmentCreate", "ConsignmentRead", "MovementEventRead", "AdvisoryEvaluateRequest", "AdvisoryRead", "TraceRunRead", "TraceFindingRead", "TraceCreateRequest", "TraceConfigurationRead", "TraceRunResponse", "SyncBatchRequest", "SyncOperationResult", "ContainmentCreate", "ContainmentRead", "ReviewCasePatch", "ReviewCaseRead", "SampleStatusUpdate", "ReportIndexRead", "ReportSourceRead", "PublicMovementCheckRequest", "PublicMovementCheckResponse"]
+__all__ = ["LocationRead", "LocationCreate", "LocationUpdate", "VehicleRead", "OutbreakCreate", "OutbreakRead", "OutbreakTrendPoint", "WeatherContextRead", "ConsignmentCreate", "ConsignmentRead", "MovementEventRead", "AdvisoryEvaluateRequest", "AdvisoryRead", "TraceRunRead", "TraceFindingRead", "TraceCreateRequest", "TraceConfigurationRead", "TraceRunResponse", "SyncBatchRequest", "SyncOperationResult", "ContainmentCreate", "ContainmentRead", "ReviewCasePatch", "ReviewCaseRead", "SampleStatusUpdate", "ReportIndexRead", "ReportSourceRead", "PublicMovementCheckRequest", "PublicMovementCheckResponse"]

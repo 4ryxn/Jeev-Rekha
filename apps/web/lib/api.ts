@@ -1,13 +1,16 @@
 export type LocationType = "village" | "market" | "checkpost" | "veterinary_centre";
 export type RegistryLocationType = "village" | "livestock_market" | "checkpost" | "veterinary_centre";
 export type LocationDataSource = "demo_seed" | "pilot_entered";
-export type OutbreakStatus = "suspected" | "confirmed" | "closed";
+export type OutbreakStatus = "suspected" | "under_investigation" | "confirmed" | "closed";
 export type VaccinationEvidence = "verified" | "declared" | "unknown";
 
 export interface Location { id: number; name: string; type: LocationType; location_type: RegistryLocationType; district: string; state: string; latitude: number; longitude: number; data_source: LocationDataSource; is_active: boolean; created_at: string; updated_at: string }
 export interface LocationRegistryPayload { name: string; location_type: RegistryLocationType; district: string; state: string; latitude: number; longitude: number }
 export interface Vehicle { id: number; vehicle_reference: string; created_at: string }
 export interface Outbreak { id: number; disease_name: string; species: string; status: OutbreakStatus; location_id: number; data_source: LocationDataSource; review_radius_km: number | null; detected_at: string; confirmed_at: string | null; suspected_cases: number; confirmed_cases: number; mortality_count: number; verification_level: string; notes: string | null; created_at: string; location: Location }
+export interface OutbreakTrendPoint { month: string; disease_name: string; outbreak_count: number }
+export interface WeatherDay { date: string; precipitation_mm: number; temperature_max_c: number; temperature_min_c: number }
+export interface WeatherContext { available: boolean; message: string | null; observed_at: string | null; temperature_c: number | null; relative_humidity: number | null; wind_speed_kmh: number | null; weather_code: number | null; recent_days: WeatherDay[] }
 export interface MovementEvent { id: number; location_id: number; event_type: string; occurred_at: string; location: Location }
 export interface Consignment { id: number; origin_location_id: number; destination_location_id: number; data_source: LocationDataSource; species: string; animal_count: number; vehicle_id: number; departure_at: string; vaccination_evidence: VaccinationEvidence; created_at: string; origin_location: Location; destination_location: Location; vehicle: Vehicle; movement_events: MovementEvent[] }
 export type RiskState = "green" | "amber" | "red" | "grey";

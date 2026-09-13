@@ -1,4 +1,4 @@
-from sqlalchemy import Select, select
+from sqlalchemy import Select, func, select
 from sqlalchemy.orm import Session, selectinload
 
 from app.models import Consignment, Location, MovementEvent, Outbreak, Vehicle
@@ -33,6 +33,15 @@ class OperationsRepository:
 
     def get_outbreak(self, db: Session, outbreak_id: int) -> Outbreak | None:
         return db.scalar(select(Outbreak).options(selectinload(Outbreak.location)).where(Outbreak.id == outbreak_id))
+
+    def outbreak_trends(self, db: Session, source: LocationDataSource) -> list[tuple[object, str, int]]:
+        month = func.date_trunc("month", Outbreak.detected_at).label("month")
+        return list(db.execute(
+            select(month, Outbreak.disease_name, func.count(Outbreak.id).label("outbreak_count"))
+            .where(Outbreak.data_source == source)
+            .group_by(month, Outbreak.disease_name)
+            .order_by(month, Outbreak.disease_name)
+        ).tuples())
 
     def add_outbreak(self, db: Session, outbreak: Outbreak) -> Outbreak:
         db.add(outbreak)

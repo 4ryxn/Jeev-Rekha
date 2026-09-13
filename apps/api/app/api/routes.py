@@ -9,7 +9,7 @@ from app.db.session import get_db
 from app.models.core import LocationDataSource, LocationType
 from app.repositories.core import OperationsRepository
 from app.repositories.advisories import AdvisoryRepository
-from app.schemas import AdvisoryEvaluateRequest, AdvisoryRead, ConsignmentCreate, ConsignmentRead, LocationCreate, LocationRead, LocationUpdate, OutbreakCreate, OutbreakRead, SyncBatchRequest, SyncOperationResult, TraceConfigurationRead, TraceCreateRequest, TraceRunResponse
+from app.schemas import AdvisoryEvaluateRequest, AdvisoryRead, ConsignmentCreate, ConsignmentRead, LocationCreate, LocationRead, LocationUpdate, OutbreakCreate, OutbreakRead, OutbreakTrendPoint, SyncBatchRequest, SyncOperationResult, TraceConfigurationRead, TraceCreateRequest, TraceRunResponse, WeatherContextRead
 from app.services.advisory import AdvisoryService
 from app.services.operations import OperationsService
 from app.services.routing import RouteService
@@ -27,6 +27,7 @@ from app.schemas import PublicMovementCheckRequest, PublicMovementCheckResponse
 from app.services.public_movement_check import PublicMovementCheckService
 from app.services.reviews import ReviewService
 from app.services.locations import LocationRegistryService
+from app.services.weather import WeatherService
 from app.core.config import get_settings
 
 router = APIRouter(prefix="/api/v1")
@@ -41,6 +42,7 @@ containment_service=ContainmentService()
 review_service=ReviewService()
 public_movement_check_service=PublicMovementCheckService()
 location_registry_service = LocationRegistryService()
+weather_service = WeatherService()
 
 
 @router.get("/locations", response_model=list[LocationRead], tags=["locations"])
@@ -87,12 +89,25 @@ def create_outbreak(payload: OutbreakCreate, db: Session = Depends(get_db)) -> o
     return service.create_outbreak(db, payload)
 
 
+@router.get("/outbreaks/trends", response_model=list[OutbreakTrendPoint], tags=["outbreaks"])
+def outbreak_trends(source: LocationDataSource, db: Session = Depends(get_db)) -> list[object]:
+    return [{"month": month, "disease_name": disease_name, "outbreak_count": outbreak_count} for month, disease_name, outbreak_count in repository.outbreak_trends(db, source)]
+
+
 @router.get("/outbreaks/{outbreak_id}", response_model=OutbreakRead, tags=["outbreaks"])
 def get_outbreak(outbreak_id: int, db: Session = Depends(get_db)) -> object:
     outbreak = repository.get_outbreak(db, outbreak_id)
     if not outbreak:
         raise HTTPException(status_code=404, detail="Outbreak not found")
     return outbreak
+
+
+@router.get("/outbreaks/{outbreak_id}/weather-context", response_model=WeatherContextRead, tags=["outbreaks"])
+def outbreak_weather_context(outbreak_id: int, db: Session = Depends(get_db)) -> object:
+    outbreak = repository.get_outbreak(db, outbreak_id)
+    if not outbreak:
+        raise HTTPException(status_code=404, detail="Outbreak not found")
+    return weather_service.context_for(outbreak)
 
 
 @router.get("/consignments", response_model=list[ConsignmentRead], tags=["consignments"])

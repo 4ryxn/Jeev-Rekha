@@ -165,6 +165,30 @@ class OutbreakRead(ORMModel):
     location: LocationRead
 
 
+class OutbreakTrendPoint(BaseModel):
+    month: datetime
+    disease_name: str
+    outbreak_count: int
+
+
+class WeatherDayRead(BaseModel):
+    date: str
+    precipitation_mm: float
+    temperature_max_c: float
+    temperature_min_c: float
+
+
+class WeatherContextRead(BaseModel):
+    available: bool
+    message: str | None = None
+    observed_at: str | None = None
+    temperature_c: float | None = None
+    relative_humidity: float | None = None
+    wind_speed_kmh: float | None = None
+    weather_code: int | None = None
+    recent_days: list[WeatherDayRead] = []
+
+
 class ConsignmentCreate(BaseModel):
     origin_location_id: int = Field(gt=0)
     destination_location_id: int = Field(gt=0)
