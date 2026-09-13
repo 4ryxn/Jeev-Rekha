@@ -10,3 +10,4 @@ class ReportIndexRead(BaseModel):
  advisories:list[ReportSourceRead]
  traces:list[ReportSourceRead]
  containment:list[ReportSourceRead]
+ lab_referrals:list[ReportSourceRead]

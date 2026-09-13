@@ -30,3 +30,47 @@ def test_reports_list_and_retrieve_persisted_trace_and_containment_sources():
     assert client.get(f"/api/v1/reports/traces/{trace.json()['id']}").status_code == 200
     assert client.get(f"/api/v1/reports/containment/{scenario.json()['id']}").status_code == 200
     assert client.get('/api/v1/reports/traces/999999').status_code == 404
+
+
+def test_create_lab_referral_from_outbreak_and_filter_review_queue():
+    outbreak = setup_sources()
+    created = client.post(f"/api/v1/outbreaks/{outbreak['id']}/lab-referrals")
+    assert created.status_code == 201, created.text
+    referral = created.json()
+    assert referral["source_type"] == "outbreak"
+    assert referral["source_id"] == str(outbreak["id"])
+    assert referral["case_type"] == "lab_referral"
+    assert referral["category"] == "lab_referral"
+    assert referral["sample_status"] == "none"
+    filtered = client.get("/api/v1/review-cases?category=lab_referral")
+    assert filtered.status_code == 200
+    assert [item["id"] for item in filtered.json()] == [referral["id"]]
+
+
+def test_lab_referral_sample_lifecycle_and_resolution_note_preserve_outbreak():
+    outbreak = setup_sources()
+    referral = client.post(f"/api/v1/outbreaks/{outbreak['id']}/lab-referrals").json()
+    with SessionLocal() as db:
+        before = db.get(Outbreak, outbreak["id"])
+        source_evidence = (before.disease_name, before.status, before.notes, before.verification_level)
+    for sample_status in ("collected", "sent_to_lab", "result_received"):
+        updated = client.patch(f"/api/v1/review-cases/{referral['id']}/sample-status", json={"sample_status": sample_status})
+        assert updated.status_code == 200, updated.text
+        assert updated.json()["sample_status"] == sample_status
+    resolved = client.patch(f"/api/v1/review-cases/{referral['id']}", json={"status": "resolved", "resolution_note": "PCR result received: negative."})
+    assert resolved.status_code == 200, resolved.text
+    assert resolved.json()["resolution_note"] == "PCR result received: negative."
+    with SessionLocal() as db:
+        after = db.get(Outbreak, outbreak["id"])
+        assert (after.disease_name, after.status, after.notes, after.verification_level) == source_evidence
+
+
+def test_lab_referral_can_resolve_without_result_note_and_reports_include_it():
+    outbreak = setup_sources()
+    referral = client.post(f"/api/v1/outbreaks/{outbreak['id']}/lab-referrals").json()
+    resolved = client.patch(f"/api/v1/review-cases/{referral['id']}", json={"status": "resolved"})
+    assert resolved.status_code == 200, resolved.text
+    assert resolved.json()["resolution_note"] is None
+    reports = client.get("/api/v1/reports")
+    assert any(item["id"] == referral["id"] for item in reports.json()["lab_referrals"])
+    assert client.get(f"/api/v1/reports/lab-referrals/{referral['id']}").status_code == 200

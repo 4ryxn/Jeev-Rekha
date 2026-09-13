@@ -355,7 +355,7 @@ class ContainmentScenario(TimestampedModel, Base):
 
 class ReviewCase(TimestampedModel, Base):
     __tablename__="review_cases"
-    __table_args__=(CheckConstraint("category IN ('evidence_gap', 'sync_exception', 'trace_contact')",name="ck_review_cases_category"),CheckConstraint("priority IN ('high', 'medium', 'low')",name="ck_review_cases_priority"),CheckConstraint("status IN ('open', 'acknowledged', 'resolved')",name="ck_review_cases_status"),Index("ux_review_cases_source_category","source_type","source_id","category",unique=True),Index("ix_review_cases_status_created_at","status","created_at"))
+    __table_args__=(CheckConstraint("category IN ('evidence_gap', 'sync_exception', 'trace_contact', 'lab_referral')",name="ck_review_cases_category"),CheckConstraint("priority IN ('high', 'medium', 'low')",name="ck_review_cases_priority"),CheckConstraint("status IN ('open', 'acknowledged', 'resolved')",name="ck_review_cases_status"),Index("ux_review_cases_source_category","source_type","source_id","category",unique=True),Index("ix_review_cases_status_created_at","status","created_at"))
     id: Mapped[int]=mapped_column(primary_key=True)
     source_type: Mapped[str]=mapped_column(String(32),nullable=False)
     source_id: Mapped[str]=mapped_column(String(64),nullable=False)

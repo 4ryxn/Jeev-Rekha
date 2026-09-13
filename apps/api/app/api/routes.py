@@ -22,7 +22,7 @@ from app.services.tracing import TraceNotFoundError, TraceService, TraceValidati
 from app.services.containment import ContainmentService
 from app.schemas import ContainmentCreate, ContainmentRead
 from app.models import ContainmentScenario, ReviewCase, Advisory, TraceRun
-from app.schemas import ReviewCasePatch, ReviewCaseRead, ReportIndexRead
+from app.schemas import ReviewCasePatch, ReviewCaseRead, ReportIndexRead, SampleStatusUpdate
 from app.schemas import PublicMovementCheckRequest, PublicMovementCheckResponse
 from app.services.public_movement_check import PublicMovementCheckService
 from app.services.reviews import ReviewService
@@ -276,24 +276,39 @@ def get_review_case(case_id:int,db:Session=Depends(get_db)):
  item=review_service.get(db,case_id)
  if not item: raise HTTPException(404,"Review case not found")
  return serialize_review(item, db)
+@router.post("/outbreaks/{outbreak_id}/lab-referrals",response_model=ReviewCaseRead,status_code=status.HTTP_201_CREATED,tags=["review-cases"])
+def create_lab_referral(outbreak_id:int,db:Session=Depends(get_db)):
+ item=review_service.create_lab_referral(db,outbreak_id)
+ if not item: raise HTTPException(404,"Outbreak not found")
+ return serialize_review(item,db)
 @router.patch("/review-cases/{case_id}",response_model=ReviewCaseRead,tags=["review-cases"])
 def update_review_case(case_id:int,payload:ReviewCasePatch,db:Session=Depends(get_db)):
  item=review_service.get(db,case_id)
  if not item: raise HTTPException(404,"Review case not found")
- return serialize_review(review_service.update(db,item,payload.status,payload.resolution_note or ""), db)
+ try:return serialize_review(review_service.update(db,item,payload.status,payload.resolution_note or ""), db)
+ except ValueError as error:raise HTTPException(422,str(error)) from error
+@router.patch("/review-cases/{case_id}/sample-status",response_model=ReviewCaseRead,tags=["review-cases"])
+def update_review_case_sample_status(case_id:int,payload:SampleStatusUpdate,db:Session=Depends(get_db)):
+ item=review_service.get(db,case_id)
+ if not item: raise HTTPException(404,"Review case not found")
+ try:return serialize_review(review_service.update_sample_status(db,item,payload.sample_status),db)
+ except ValueError as error:raise HTTPException(422,str(error)) from error
 
 @router.get("/reports",response_model=ReportIndexRead,tags=["reports"])
 def list_reports(source: LocationDataSource | None = None, db:Session=Depends(get_db)):
  traces=trace_repository.list_trace_runs(db, source)[:12]
  scenarios=[item for item in db.scalars(select(ContainmentScenario).order_by(ContainmentScenario.created_at.desc()).limit(12)) if source is None or item.outbreak.data_source == source]
- return {"advisories":[{"id":x.id,"href":f"/reports/advisories/{x.id}","title":f"{x.risk_state.value.title()} movement advisory","data_source":x.data_source} for x in advisory_repository.list_recent_advisories(db, source)],"traces":[{"id":x.id,"href":f"/reports/traces/{x.id}","title":f"{x.direction.replace('_',' ').title()} trace contact review","data_source":x.outbreak.data_source} for x in traces],"containment":[{"id":x.id,"href":f"/containment-scenarios/{x.id}/print","title":"Containment action brief","data_source":x.outbreak.data_source} for x in scenarios]}
+ lab_referrals=[item for item in review_service.list(db,category="lab_referral",source=source)[:12]]
+ return {"advisories":[{"id":x.id,"href":f"/reports/advisories/{x.id}","title":f"{x.risk_state.value.title()} movement advisory","data_source":x.data_source} for x in advisory_repository.list_recent_advisories(db, source)],"traces":[{"id":x.id,"href":f"/reports/traces/{x.id}","title":f"{x.direction.replace('_',' ').title()} trace contact review","data_source":x.outbreak.data_source} for x in traces],"containment":[{"id":x.id,"href":f"/containment-scenarios/{x.id}/print","title":"Containment action brief","data_source":x.outbreak.data_source} for x in scenarios],"lab_referrals":[{"id":x.id,"href":f"/reports/lab-referrals/{x.id}","title":x.title,"data_source":review_service.source_data_source(x,db)} for x in lab_referrals]}
 @router.get("/reports/{kind}/{source_id}",tags=["reports"])
 def get_report_source(kind:str,source_id:int,db:Session=Depends(get_db)):
  if kind=="advisories": item=advisory_repository.get_advisory(db,source_id)
  elif kind=="traces": item=trace_repository.get_trace_run_with_findings(db,source_id)
  elif kind=="containment": item=containment_service.get(db,source_id)
+ elif kind=="lab-referrals": item=db.scalar(select(ReviewCase).where(ReviewCase.id==source_id,ReviewCase.case_type=="lab_referral"))
  else: raise HTTPException(404,"Report source not found")
  if not item: raise HTTPException(404,"Report source not found")
  if kind=="traces": return serialize_trace(db,item)
  if kind=="advisories": return AdvisoryRead.model_validate(item).model_dump(mode="json")
+ if kind=="lab-referrals": return serialize_review(item,db)
  return ContainmentRead.model_validate(item).model_dump(mode="json")
