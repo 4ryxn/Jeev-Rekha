@@ -1,4 +1,5 @@
 from datetime import datetime
+from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, computed_field, field_validator, model_validator
 
@@ -120,6 +121,10 @@ class OutbreakCreate(BaseModel):
     mortality_count: int = Field(default=0, ge=0)
     verification_level: VerificationLevel
     notes: str | None = Field(default=None, max_length=2000)
+    symptoms: list[str] = Field(default_factory=list)
+    days_since_onset: int | None = Field(default=None, ge=0, le=365)
+    reporter_type: Literal["farmer", "field_worker", "veterinary_officer"] | None = None
+    animals_affected: int | None = Field(default=None, gt=0)
 
     @field_validator("disease_name", "species")
     @classmethod
@@ -128,6 +133,16 @@ class OutbreakCreate(BaseModel):
         if not value:
             raise ValueError("must not be blank")
         return value
+
+    @model_validator(mode="after")
+    def validate_symptom_report(self) -> "OutbreakCreate":
+        if self.reporter_type is None:
+            return self
+        if self.animals_affected is None or self.days_since_onset is None:
+            raise ValueError("animals_affected and days_since_onset are required for symptom reports")
+        if self.status != OutbreakStatus.SUSPECTED:
+            raise ValueError("symptom reports must have suspected status")
+        return self
 
 
 class OutbreakRead(ORMModel):

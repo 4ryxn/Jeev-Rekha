@@ -2,21 +2,29 @@ from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.models import Consignment, MovementEvent, Outbreak, VaccinationEvent, Vehicle
-from app.models.core import LocationDataSource, MovementEventType, VaccinationEvidence, VerificationLevel
+from app.models.core import LocationDataSource, MovementEventType, OutbreakSource, VaccinationEvidence, VerificationLevel
 from app.repositories.core import OperationsRepository
 from app.schemas.core import ConsignmentCreate, OutbreakCreate
+from app.services.triage import TriageService
 
 
 class OperationsService:
     def __init__(self, repository: OperationsRepository | None = None) -> None:
         self.repository = repository or OperationsRepository()
+        self.triage_service = TriageService()
 
     def create_outbreak(self, db: Session, payload: OutbreakCreate) -> Outbreak:
         location = self.repository.get_location(db, payload.location_id)
         self._validate_location_context(location, payload.data_source, "Outbreak")
         if payload.review_radius_km is not None and payload.data_source != LocationDataSource.PILOT_ENTERED:
             raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Review radius is available only for pilot-entered outbreaks.")
-        return self.repository.add_outbreak(db, Outbreak(**payload.model_dump()))
+        data = payload.model_dump(exclude={"symptoms", "days_since_onset", "reporter_type", "animals_affected"})
+        if payload.reporter_type:
+            data["source"] = OutbreakSource.VET_OBSERVED if payload.reporter_type == "veterinary_officer" else OutbreakSource.FARMER_REPORTED
+            data["suspected_cases"] = payload.animals_affected
+            data["notes"] = (payload.notes or "") + f" Symptom report: symptoms={','.join(payload.symptoms)}; days_since_onset={payload.days_since_onset}; reporter_type={payload.reporter_type}."
+        outbreak = self.repository.add_outbreak(db, Outbreak(**data))
+        return self.triage_service.flag_if_needed(db, outbreak, payload)
 
     def create_consignment(self, db: Session, payload: ConsignmentCreate) -> Consignment:
         origin = self.repository.get_location(db, payload.origin_location_id)

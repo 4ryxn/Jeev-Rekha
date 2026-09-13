@@ -1,7 +1,7 @@
 from datetime import UTC, datetime
 from sqlalchemy import select
 from sqlalchemy.orm import Session
-from app.models import Advisory, ReviewCase, SyncReceipt, TraceFinding, TraceRun
+from app.models import Advisory, Outbreak, ReviewCase, SyncReceipt, TraceFinding, TraceRun
 from app.models.core import LocationDataSource
 from app.models.core import RiskState
 
@@ -39,7 +39,9 @@ class ReviewService:
    trace=db.get(TraceRun,finding.trace_run_id); return trace.data_source if trace else None
   if item.source_type=="sync_operation":
    receipt=db.scalar(select(SyncReceipt).where(SyncReceipt.client_operation_id==item.source_id)); return receipt.data_source if receipt else None
+  if item.source_type=="outbreak":
+   outbreak=db.get(Outbreak,int(item.source_id)); return outbreak.data_source if outbreak else None
   return None
  def source_meta(self,item,db):
-  href={"advisory":f"/advisories/{item.source_id}","trace_finding":"/trace-lab","sync_operation":"/register"}[item.source_type]
+  href={"advisory":f"/advisories/{item.source_id}","trace_finding":"/trace-lab","sync_operation":"/register","outbreak":"/"}[item.source_type]
   return {"source_summary":item.summary,"source_href":href,"data_source":self.source_data_source(item,db)}
